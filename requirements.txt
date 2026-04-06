@@ -1,0 +1,7 @@
+python-docx
+spacy
+openpyxl
+customtkinter
+pyinstaller
+click
+rich

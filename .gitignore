@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+
+# MacOS folder attributes
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Other project specifics
+__pycache__
+*.pyc
+
+# Local mapping files, DB, PDFs
+*.pdf
+*.docx
+test_det.xlsx
+test_final_money.xlsx
+status.json
+status2.json
+status_archive.json

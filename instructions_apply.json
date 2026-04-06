@@ -1,0 +1,55 @@
+{
+  "changeName": "excel-workflow",
+  "changeDir": "C:\\Users\\sclasen\\Documents\\Archivos personales\\claude-pruebas\\doc-anonymizer\\openspec\\changes\\excel-workflow",
+  "schemaName": "spec-driven",
+  "contextFiles": {
+    "proposal": "C:\\Users\\sclasen\\Documents\\Archivos personales\\claude-pruebas\\doc-anonymizer\\openspec\\changes\\excel-workflow\\proposal.md",
+    "specs": "C:\\Users\\sclasen\\Documents\\Archivos personales\\claude-pruebas\\doc-anonymizer\\openspec\\changes\\excel-workflow\\specs\\**\\*.md",
+    "design": "C:\\Users\\sclasen\\Documents\\Archivos personales\\claude-pruebas\\doc-anonymizer\\openspec\\changes\\excel-workflow\\design.md",
+    "tasks": "C:\\Users\\sclasen\\Documents\\Archivos personales\\claude-pruebas\\doc-anonymizer\\openspec\\changes\\excel-workflow\\tasks.md"
+  },
+  "progress": {
+    "total": 7,
+    "complete": 0,
+    "remaining": 7
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "description": "1.1 Analizar `detect` para que no solo detecte sino que almacene la procedencia de cada hit (`NER`, `DB`, `REGEX`)",
+      "done": false
+    },
+    {
+      "id": "2",
+      "description": "1.2 Extender el export de detección en `mapping.py` o módulo equivalente para que escriba las cabeceras y los datos (`Original, Tipo, Pseudonimo, Accion, Origen`)",
+      "done": false
+    },
+    {
+      "id": "3",
+      "description": "2.1 Implementar la lógica condicional en la generación del excel: Si origen == 'DB', aplicar `PatternFill` verde",
+      "done": false
+    },
+    {
+      "id": "4",
+      "description": "2.2 Autocompletar el campo `Accion` sugerido para Regex y DBs a manera de guía del usuario interactivo (opcional pero preferido)",
+      "done": false
+    },
+    {
+      "id": "5",
+      "description": "3.1 Actualizar el comando `anonymize apply` para parsear este excel ampliado verificando la robustez de las filas",
+      "done": false
+    },
+    {
+      "id": "6",
+      "description": "3.2 Modificar el core o la iteración para que al encontrar un `Accion` evalué la convención \"s/n/e\"",
+      "done": false
+    },
+    {
+      "id": "7",
+      "description": "3.3 Test manual exportando la deteccion e importando aplicacion de manera full asincrónica",
+      "done": false
+    }
+  ],
+  "state": "ready",
+  "instruction": "Read context files, work through pending tasks, mark complete as you go.\nPause if you hit blockers or need clarification."
+}

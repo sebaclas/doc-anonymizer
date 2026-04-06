@@ -1,0 +1,37 @@
+schema: spec-driven
+
+project:
+  name: "doc-anonymizer"
+  description: "Herramienta de pseudonimización para documentos Word y PDF usando NER (spaCy) y Regex."
+  tech_stack:
+    - "Python >= 3.10"
+    - "spaCy (modelo xx_ent_wiki_sm)"
+    - "Typer & Rich (CLI)"
+    - "python-docx & pdfplumber"
+    - "rapidfuzz (Fuzzy Matching)"
+    - "Excel"
+
+workflow:
+  mode: "standard" # Recomendado para mantener la coherencia entre NER y Regex
+  require_specs: true
+  auto_archive: false
+  # Pasos obligatorios para cambios en este proyecto
+  steps:
+    - proposal
+    - design
+    - tasks
+
+documentation:
+  language: "es"
+  format: "markdown"
+  spec_style: "Gherkin" # Ideal para definir casos de prueba de detección de entidades
+
+
+paths:
+  specs: "openspec/specs"
+  changes: "openspec/changes"
+  # Mapeo de archivos importantes para que la IA los encuentre rápido
+  reference_files:
+    - "anonymizer/models.py"
+    - "anonymizer/detectors/patterns.py"
+    - "MANUAL.md"
