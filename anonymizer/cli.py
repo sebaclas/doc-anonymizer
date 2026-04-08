@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from rich import box
+from anonymizer.config import current_settings, SETTINGS_PATH
 
 app = typer.Typer(
     name="anonymize",
@@ -15,6 +16,10 @@ app = typer.Typer(
 # Sub-app for "db" commands
 db_app = typer.Typer(help="Gestiona la base de datos de entidades conocidas.")
 app.add_typer(db_app, name="db")
+
+# Sub-app for "settings" commands
+settings_app = typer.Typer(help="Ver y gestionar la configuración global.")
+app.add_typer(settings_app, name="settings")
 
 console = Console()
 
@@ -48,7 +53,7 @@ def run(
     config: Optional[Path] = typer.Option(None, "--config", "-c", help="Patrones custom JSON"),
     excel: bool = typer.Option(True, "--excel/--no-excel"),
     skip_review: bool = typer.Option(False, "--skip-review"),
-    fuzzy_threshold: float = typer.Option(85.0, "--threshold", "-t",
+    fuzzy_threshold: float = typer.Option(current_settings.fuzzy_threshold, "--threshold", "-t",
                                            help="Umbral de similitud para matching aproximado (0-100)"),
     no_ner: bool = typer.Option(False, "--no-ner",
                                  help="Saltear NER, usar solo regex + base de datos (recomendado para contratos)"),
@@ -134,6 +139,7 @@ def run(
                     pseudonym=pseudo,
                     entity_type=etype,
                     aliases=[],
+                    match_mode="palabra"
                 ))
                 console.print(f"  [green]OK[/green] Guardado en base de datos")
 
@@ -245,7 +251,9 @@ def detect(
                     "tipo": e.entity_type.value,
                     "pseudonimo": pseudonimo,
                     "accion": accion,
-                    "origen": origen
+                    "origen": origen,
+                    "aliases": match_res.known.aliases if origen == "DB" else [],
+                    "modo": match_res.known.match_mode if origen == "DB" else "palabra"
                 })
                 
             map_module.save_extended_excel(data_rows, output)
@@ -267,14 +275,43 @@ def apply(
     from anonymizer import mapping as map_module, replacer
 
     suffix = mapping_file.suffix.lower()
-    mapping = map_module.load_excel(mapping_file) if suffix == ".xlsx" else map_module.load_json(mapping_file)
+    # Load mapping and sync with DB if using Excel
+    if suffix == ".xlsx":
+        from anonymizer import known_entities as ke
+        full_data = map_module.load_extended_data(mapping_file)
+        mapping = {d["original"]: d["pseudonimo"] for d in full_data}
+        db_added = 0
+        for d in full_data:
+            if d.get("save_db"):
+                ke.add(ke.KnownEntity(
+                    original=d["original"],
+                    pseudonym=d["pseudonimo"],
+                    entity_type=d.get("tipo", "PERSONALIZADO"),
+                    aliases=d.get("aliases", []),
+                    match_mode=d.get("modo", "palabra")
+                ))
+                db_added += 1
+        if db_added > 0:
+            console.print(f"  [green]OK[/green] {db_added} entidades agregadas a la DB maestra")
+    else:
+        mapping = map_module.load_json(mapping_file)
 
     out_path = _output_path(document, output)
     with console.status("Aplicando mapeo..."):
+        # We need to construct modes dict for the replacer
+        # In CLI apply, we'll reload DB to get modes for everything
+        from anonymizer import known_entities as ke_mod
+        db_entities = ke_mod.load()
+        modes = {e.original: e.match_mode for e in db_entities}
+        # For those not in DB but in mapping, default to word boundaries
+        for k in mapping:
+            if k not in modes:
+                modes[k] = "palabra"
+
         if document.suffix.lower() == ".docx":
-            replacer.anonymize_docx(document, out_path, mapping)
+            replacer.anonymize_docx(document, out_path, mapping, modes)
         else:
-            replacer.anonymize_pdf(document, out_path, mapping)
+            replacer.anonymize_pdf(document, out_path, mapping, modes)
 
     console.print(f"[bold green]OK[/bold green] {out_path}")
 
@@ -366,7 +403,7 @@ def db_export(
 ):
     """Exporta la base de datos a Excel para edicion manual."""
     from anonymizer import known_entities as ke_module
-    excel_path = output or ke_module.DB_PATH.with_suffix(".xlsx")
+    excel_path = output or Path(current_settings.db_path).with_suffix(".xlsx")
     count = ke_module.to_excel(excel_path)
     console.print(f"[green]OK[/green] {count} entidades exportadas a: {excel_path}")
     console.print("[dim]Edita el archivo en Excel y luego ejecuta:[/dim]")
@@ -425,6 +462,45 @@ def db_alias(
             console.print(f"[green]OK[/green] Alias \"{alias}\" agregado a \"{original}\"")
             return
     console.print(f"[yellow]No encontrado:[/yellow] \"{original}\"")
+
+
+# ── SETTINGS COMMANDS ─────────────────────────────────────────────────────────
+
+@settings_app.callback(invoke_without_command=True)
+def settings_main(ctx: typer.Context):
+    """Muestra la ubicación y el contenido de la configuración actual."""
+    if ctx.invoked_subcommand is not None:
+        return
+
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold cyan")
+    table.add_column("Ajuste", style="white")
+    table.add_column("Valor", style="green")
+
+    table.add_row("Archivo", str(SETTINGS_PATH))
+    table.add_row("Base de datos", current_settings.db_path)
+    table.add_row("Patrones custom", current_settings.patterns_path)
+    table.add_row("Modelos NER", ", ".join(current_settings.ner_models))
+    table.add_row("Umbral difuso", str(current_settings.fuzzy_threshold))
+    table.add_row("Stopwords", f"{len(current_settings.ner_stopwords)} configuradas")
+
+    console.print("\n[bold]Configuración actual:[/bold]\n")
+    console.print(table)
+    console.print(f"\n[dim]Para editar: notepad \"{SETTINGS_PATH}\"[/dim]\n")
+
+
+@settings_app.command("path")
+def settings_path():
+    """Muestra la ruta al archivo settings.json."""
+    console.print(str(SETTINGS_PATH))
+
+
+@settings_app.command("reset")
+def settings_reset():
+    """Restaura la configuración a los valores por defecto."""
+    if Confirm.ask("[yellow]¿Estás seguro de que deseas restaurar los valores por defecto?[/yellow]"):
+        from anonymizer.config import Settings
+        Settings().save()
+        console.print("[green]OK[/green] Configuración restaurada.")
 
 
 if __name__ == "__main__":

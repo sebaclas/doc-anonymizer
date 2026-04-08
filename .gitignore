@@ -46,3 +46,33 @@ status.json
 status2.json
 status_archive.json
 Notas_y_planificación.md
+
+# Folders to ignore
+.agent/
+# openspec/changes/
+sample_docs/
+
+# Root files: Ignore all by default and only allow specific ones
+/*
+!/.gitignore
+!/STACK.md
+!/MANUAL.md
+!/mini_manual.md
+!/mini_manual.html
+!/pyproject.toml
+!/requirements.txt
+!/build_exe.py
+
+# Allow directories (the /* above ignored them)
+!/.agent/
+!/anonymizer/
+!/openspec/
+!/tests/
+!/mappings/
+!/sample_docs/
+
+# Re-apply ignores for sub-folders of allowed directories
+.agent/*
+openspec/changes/*
+!openspec/changes/archive/
+sample_docs/*

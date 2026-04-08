@@ -5,8 +5,7 @@ Returns pre-approved mappings (exact) and fuzzy suggestions (for review).
 from dataclasses import dataclass
 from rapidfuzz import fuzz, process as rfprocess
 from anonymizer.known_entities import KnownEntity
-
-DEFAULT_FUZZY_THRESHOLD = 85  # 0-100
+from anonymizer.config import current_settings
 
 
 @dataclass
@@ -36,7 +35,7 @@ class EntityMatcher:
 def match_against_db(
     detected_texts: list[str],
     known_entities: list[KnownEntity],
-    threshold: float = DEFAULT_FUZZY_THRESHOLD,
+    threshold: float = current_settings.fuzzy_threshold,
 ) -> tuple[list[MatchResult], list[str]]:
     """
     For each detected text:

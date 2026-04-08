@@ -10,6 +10,7 @@ from anonymizer.detectors import detector
 from anonymizer.matcher import EntityMatcher
 from anonymizer import mapping as mapping_mod
 from anonymizer.utils import extract_document, anonymize_document
+from anonymizer.config import current_settings, SETTINGS_PATH
 
 # Configuración de apariencia
 ctk.set_appearance_mode("Dark")
@@ -42,6 +43,12 @@ class AnonymizerGUI(ctk.CTk):
                                       fg_color="#17a2b8", hover_color="#138496",
                                       command=self._show_help)
         self.btn_help.pack(side="right")
+
+        self.btn_settings = ctk.CTkButton(self.header_frame, text="⚙️ Ajustes", 
+                                          width=80, height=30,
+                                          fg_color="#6c757d", hover_color="#5a6268",
+                                          command=self._open_settings)
+        self.btn_settings.pack(side="right", padx=10)
 
         self.subtitle = ctk.CTkLabel(self, text="Anonimización segura de Word y PDF", font=ctk.CTkFont(size=14))
         self.subtitle.pack(pady=(0, 20))
@@ -216,8 +223,9 @@ class AnonymizerGUI(ctk.CTk):
                 self.after(0, self._apply_finished)
                 return
 
-            # Construir mapeo para el reemplazo en documento
+            # Construir mapeo y modos para el reemplazo en documento
             mapping = {d["original"]: d["pseudonimo"] for d in full_data}
+            modes = {d["original"]: d.get("modo", "palabra") for d in full_data}
 
             # 1. Alimentar base de datos maestra si se solicitó
             from anonymizer import known_entities as ke
@@ -228,12 +236,13 @@ class AnonymizerGUI(ctk.CTk):
                         original=d["original"],
                         pseudonym=d["pseudonimo"],
                         entity_type=d.get("tipo", "PERSONALIZADO"),
-                        aliases=[]
+                        aliases=d.get("aliases", []),
+                        match_mode=d.get("modo", "palabra")
                     ))
                     db_added += 1
 
             # 2. Ejecutar anonimización
-            anonymize_document(self.doc_path, output_file, mapping)
+            anonymize_document(self.doc_path, output_file, mapping, modes)
             
             # Actualizar UI
             msg = f"Documento guardado: {output_file.name}"
@@ -285,6 +294,13 @@ class AnonymizerGUI(ctk.CTk):
             
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la DB: {str(e)}")
+
+    def _open_settings(self):
+        """Abre el archivo settings.json para edición manual."""
+        if SETTINGS_PATH.exists():
+            os.startfile(SETTINGS_PATH)
+        else:
+            messagebox.showerror("Error", "No se encontró el archivo de ajustes.")
 
     def _show_help(self):
         # 1. Buscar en todas las ubicaciones posibles (ahora en HTML)

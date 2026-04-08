@@ -6,8 +6,10 @@ import json
 from pathlib import Path
 from dataclasses import dataclass, asdict
 from anonymizer.models import EntityType
+from anonymizer.config import current_settings
 
-DB_PATH = Path.home() / ".doc-anonymizer" / "known_entities.json"
+def _get_db_path():
+    return Path(current_settings.db_path)
 
 
 @dataclass
@@ -38,7 +40,7 @@ class KnownEntity:
 
 
 def load(path: Path | None = None) -> list[KnownEntity]:
-    db_path = path or DB_PATH
+    db_path = path or _get_db_path()
     if not db_path.exists():
         # Aseguramos que el directorio exista para futuras escrituras
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +55,7 @@ def load(path: Path | None = None) -> list[KnownEntity]:
 
 
 def save(entities: list[KnownEntity], path: Path | None = None):
-    db_path = path or DB_PATH
+    db_path = path or _get_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
     with open(db_path, "w", encoding="utf-8") as f:
         json.dump([e.to_dict() for e in entities], f, ensure_ascii=False, indent=2)

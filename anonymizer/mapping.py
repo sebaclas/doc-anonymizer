@@ -119,7 +119,7 @@ def save_extended_excel(data_rows: list[dict], path: str | Path):
     ws = wb.active
     ws.title = "Detecciones"
 
-    headers = ["Original", "Tipo", "Pseudonimo", "Accion", "Guardar DB", "Origen"]
+    headers = ["Original", "Tipo", "Pseudonimo", "Accion", "Guardar DB", "Origen", "Aliases", "Modo"]
     for col_idx, header in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = openpyxl.styles.Font(bold=True)
@@ -136,10 +136,16 @@ def save_extended_excel(data_rows: list[dict], path: str | Path):
         
         origen = row_dict.get("origen", "")
         ws.cell(row=row_idx, column=6, value=origen)
+
+        # New columns for DB sync
+        aliases_list = row_dict.get("aliases", [])
+        aliases_str = ", ".join(aliases_list) if isinstance(aliases_list, list) else str(aliases_list)
+        ws.cell(row=row_idx, column=7, value=aliases_str)
+        ws.cell(row=row_idx, column=8, value=row_dict.get("modo", "palabra"))
         
         # Color row if origen is DB
         if origen == "DB":
-            for col in range(1, 7):
+            for col in range(1, 9):
                 ws.cell(row=row_idx, column=col).fill = green_fill
 
     ws.column_dimensions["A"].width = 35
@@ -148,6 +154,8 @@ def save_extended_excel(data_rows: list[dict], path: str | Path):
     ws.column_dimensions["D"].width = 12
     ws.column_dimensions["E"].width = 12
     ws.column_dimensions["F"].width = 12
+    ws.column_dimensions["G"].width = 40
+    ws.column_dimensions["H"].width = 14
     
     _create_instruction_sheet(wb)
 
@@ -176,12 +184,26 @@ def load_extended_data(path: str | Path) -> list[dict]:
         save_db = str(row[4]).lower().strip() if row[4] else ""
         tipo = str(row[1]) if row[1] else "PERSONALIZADO"
 
+        # Optional new columns
+        aliases = []
+        if len(row) >= 7 and row[6]:
+            raw_aliases = str(row[6])
+            aliases = [a.strip() for a in raw_aliases.split(",") if a.strip()]
+        
+        modo = "palabra"
+        if len(row) >= 8 and row[7]:
+            raw_modo = str(row[7]).strip().lower()
+            if raw_modo in ["palabra", "substring"]:
+                modo = raw_modo
+
         if accion in ["s", "e", "si", "sí"]:
             results.append({
                 "original": original,
                 "pseudonimo": pseudo,
                 "save_db": save_db in ["s", "si", "sí", "x"],
-                "tipo": tipo
+                "tipo": tipo,
+                "aliases": aliases,
+                "modo": modo
             })
             
     return results

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from anonymizer.models import Entity, EntityType
+from anonymizer.config import current_settings
 
 # spaCy label → EntityType
 _LABEL_MAP = {
@@ -9,38 +10,6 @@ _LABEL_MAP = {
     "LOC":    EntityType.LOCATION,
     "GPE":    EntityType.LOCATION,
 }
-
-# Words that should never be treated as entities (common false positives)
-_STOPWORDS = {
-    # Financial
-    "total", "subtotal", "saldo", "cuil", "cuit", "nombre", "gasto", "gastos",
-    "ingresos", "egresos", "intereses", "generales", "pagos", "período", "periodo",
-    "monto", "importe", "precio", "valor", "cuota", "factura", "recibo", "pago",
-    # Legal / contract terms (capitalized but not proper nouns)
-    "contrato", "contratante", "contratista", "proveedor", "cliente", "parte",
-    "partes", "empresa", "sociedad", "entidad", "organismo", "estado", "nacion",
-    "servicio", "servicios", "producto", "productos", "objeto", "cláusula",
-    "clausula", "anexo", "acuerdo", "convenio", "rescisión", "rescision",
-    "incumplimiento", "penalidad", "garantía", "garantia", "plazo", "vigencia",
-    "jurisdicción", "jurisdiccion", "tribunal", "juzgado", "fuero", "ley",
-    "decreto", "resolución", "resolucion", "artículo", "articulo", "inciso",
-    "obligación", "obligacion", "derecho", "derechos", "responsabilidad",
-    "confidencialidad", "propiedad", "intelectual", "licencia", "cesión",
-    "cesion", "representante", "apoderado", "domicilio", "notificación",
-    "notificacion", "firmante", "suscribiente", "abajo", "presente",
-    # Generic capitalized words
-    "no", "si", "lugar", "edificio", "seg", "ascensores", "portero",
-    "lula", "tanq", "limp", "cta", "juri", "yami", "bolsas",
-    "administración", "administracion", "señor", "señora", "señores",
-    "considerando", "resultando", "visto", "acuerdo", "mediante",
-}
-
-# Preferred models in order (multilingual → Spanish → English fallback)
-_MODEL_CANDIDATES = [
-    "xx_ent_wiki_sm",   # multilingual (recommended)
-    "es_core_news_sm",  # Spanish
-    "en_core_web_sm",   # English fallback
-]
 
 _nlp = None
 
@@ -52,7 +21,7 @@ def _load_model():
 
     import spacy
 
-    for model in _MODEL_CANDIDATES:
+    for model in current_settings.ner_models:
         try:
             _nlp = spacy.load(model)
             return _nlp
@@ -74,7 +43,7 @@ def _extract_from_span(ent, char_offset: int) -> Entity | None:
     text = ent.text.strip()
     if len(text) < 3:
         return None
-    if text.lower() in _STOPWORDS:
+    if text.lower() in current_settings.ner_stopwords:
         return None
     if all(c.isdigit() or c in ".,-%$/\n\t " for c in text):
         return None
