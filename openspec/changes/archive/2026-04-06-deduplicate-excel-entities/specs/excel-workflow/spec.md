@@ -1,4 +1,4 @@
-## ADDED Requirements
+## MODIFIED Requirements
 
 ### Requirement: Generate interactive Excel artifact
 The system MUST export a well-formatted `.xlsx` file during the detection step allowing offline entity vetting, extending the current json capabilities. The exported rows MUST be deduplicated by `(text, type)` so that each unique entity appears exactly once to minimize user workload.
@@ -7,17 +7,3 @@ The system MUST export a well-formatted `.xlsx` file during the detection step a
 - **WHEN** user commands detection with excel output flag/method and the document contains multiple identical occurrences of an entity
 - **THEN** an `.xlsx` workbook is created where each unique `(text, type)` pair appears as only a single row, minimizing repeated assignments.
 - **AND THEN** the columns are exactly: `Original`, `Tipo`, `Pseudonimo`, `Accion`, and `Origen` (plus any internal UI state elements like `guardar_db` as required).
-
-### Requirement: Highlight database entities
-The system MUST visually distinguish recognized parameters from generic untrusted extractions.
-
-#### Scenario: Green styling for DB hits
-- **WHEN** an extracted entity matches an established profile in the user db
-- **THEN** its corresponding row is painted in light green inside the exported `.xlsx` file and `Origen` holds "DB"
-
-### Requirement: Excel Application phase
-The system MUST be able to apply pseudonym mapping reading off the exported excel correctly.
-
-#### Scenario: Mapping user intents 
-- **WHEN** user provides the filled excel to `anonymize apply`
-- **THEN** system evaluates the `Accion` column executing the `s`, `n` or `e` procedures accordingly instead of the standard terminal input

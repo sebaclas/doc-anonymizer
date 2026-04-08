@@ -69,14 +69,14 @@ def run(
         doc = extract(document)
     console.print(f"  [green]OK[/green] {len(doc.paragraphs)} parrafos extraidos")
 
-    # 2. Detect
+    # 2. Detect & Match
+    known = ke_module.load()
     custom_patterns = cfg_module.load_custom_patterns(config)
     with console.status("Detectando entidades..."):
-        entities = detector.detect_all(doc, custom_patterns, use_ner=not no_ner)
+        entities = detector.detect_all(doc, custom_patterns, use_ner=not no_ner, known_entities=known)
     console.print(f"  [green]OK[/green] {len(entities)} entidades detectadas")
 
     # 3. Match against known entities DB
-    known = ke_module.load()
     detected_texts = list({e.text for e in entities})
     db_matches, unmatched_texts = mat_module.match_against_db(
         detected_texts, known, threshold=fuzzy_threshold
@@ -193,9 +193,11 @@ def detect(
 
     extract = _get_extractor(document)
     with console.status("Extrayendo y detectando..."):
+        from anonymizer import known_entities as ke_module
+        known = ke_module.load()
         doc = extract(document)
         custom_patterns = cfg_module.load_custom_patterns(config)
-        entities = detector.detect_all(doc, custom_patterns)
+        entities = detector.detect_all(doc, custom_patterns, known_entities=known)
 
     console.print(f"\n[bold]{len(entities)} entidades detectadas:[/bold]\n")
     for ent in entities:
@@ -216,8 +218,9 @@ def detect(
             seen_texts = set()
             unique_entities = []
             for e in entities:
-                if e.text not in seen_texts:
-                    seen_texts.add(e.text)
+                ent_key = (e.text, e.entity_type)
+                if ent_key not in seen_texts:
+                    seen_texts.add(ent_key)
                     unique_entities.append(e)
 
             detected_texts = [e.text for e in unique_entities]

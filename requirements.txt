@@ -1,7 +1,10 @@
-python-docx
-spacy
-openpyxl
+python-docx>=1.1
+spacy>=3.7
+openpyxl>=3.1
 customtkinter
 pyinstaller
-click
-rich
+typer>=0.12
+rich>=13.7
+pdfplumber>=0.11
+reportlab>=4.2
+rapidfuzz>=3.0

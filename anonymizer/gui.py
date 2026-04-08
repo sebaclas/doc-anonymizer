@@ -153,12 +153,18 @@ class AnonymizerGUI(ctk.CTk):
             # 1. Extraer (usa dispatcher)
             doc = extract_document(self.doc_path)
             
-            # 2. Detectar (Pasar el objeto doc completo al detector)
-            entities = detector.detect_all(doc)
+            # 2. Detectar (Pasar el objeto doc completo y la DB al detector)
+            entities = detector.detect_all(doc, known_entities=self.matcher.db)
             
             # 3. Match con DB
             rows = []
+            seen = set()
             for ent in entities:
+                ent_key = (ent.text, ent.entity_type)
+                if ent_key in seen:
+                    continue
+                seen.add(ent_key)
+                
                 pseudo = self.matcher.match(ent.text, ent.entity_type)
                 rows.append({
                     "original": ent.text,

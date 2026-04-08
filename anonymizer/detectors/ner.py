@@ -72,7 +72,7 @@ def _extract_from_span(ent, char_offset: int) -> Entity | None:
     if etype is None:
         return None
     text = ent.text.strip()
-    if len(text) < 4:
+    if len(text) < 3:
         return None
     if text.lower() in _STOPWORDS:
         return None
