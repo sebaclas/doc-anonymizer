@@ -5,7 +5,7 @@ from anonymizer.detectors import ner, patterns as pat_module
 
 def detect_all(
     doc: Document,
-    custom_patterns: list[dict] | None = None,
+    patterns: list[dict] | None = None,
     use_ner: bool = True,
     known_entities: list = None,
 ) -> list[Entity]:
@@ -13,9 +13,18 @@ def detect_all(
     Run NER + regex + known lookup on the document's full text.
     use_ner=False skips NER entirely.
     """
-    known_entities_found = _detect_known(doc.full_text, known_entities) if known_entities else []
+    from anonymizer.config import load_custom_patterns
+    from anonymizer.known_entities import load
+    
+    # If no patterns provided, load from config
+    active_patterns = patterns if patterns is not None else load_custom_patterns()
+    
+    # If no known_entities provided, load from master Excel
+    shared_known = known_entities if known_entities is not None else load()
+    
+    known_entities_found = _detect_known(doc.full_text, shared_known) if shared_known else []
     ner_entities = ner.detect(doc.full_text) if use_ner else []
-    regex_entities = pat_module.detect(doc.full_text, custom_patterns)
+    regex_entities = pat_module.detect(doc.full_text, active_patterns)
 
     all_entities = known_entities_found + ner_entities + regex_entities
     return _deduplicate(all_entities)

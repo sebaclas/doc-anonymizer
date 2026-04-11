@@ -399,15 +399,13 @@ def db_remove(
 @db_app.command("export")
 def db_export(
     output: Optional[Path] = typer.Option(None, "--output", "-o",
-                                           help="Ruta del Excel de salida. Por defecto: ~/.doc-anonymizer/known_entities.xlsx"),
+                                           help="Ruta de destino. Por defecto: copia del master_database.xlsx"),
 ):
-    """Exporta la base de datos a Excel para edicion manual."""
+    """Crea una copia de la base de datos maestra."""
     from anonymizer import known_entities as ke_module
     excel_path = output or Path(current_settings.db_path).with_suffix(".xlsx")
     count = ke_module.to_excel(excel_path)
     console.print(f"[green]OK[/green] {count} entidades exportadas a: {excel_path}")
-    console.print("[dim]Edita el archivo en Excel y luego ejecuta:[/dim]")
-    console.print(f"[bold]  anonymize db import \"{excel_path}\"[/bold]")
 
 
 @db_app.command("import")
@@ -416,16 +414,15 @@ def db_import(
     entity_type: str = typer.Option("PERSONALIZADO", "--type", "-t",
                                      help="Tipo por defecto para entradas sin tipo (solo JSON)"),
 ):
-    """Importa entidades desde Excel (.xlsx) o desde un mapeo JSON."""
-    from anonymizer import known_entities as ke_module, mapping as map_module
-
+    """Importa entidades y las guarda permanentemente en la base de datos maestra."""
+    from anonymizer import known_entities as ke_module
     suffix = source_file.suffix.lower()
 
     if suffix == ".xlsx":
-        updated, added = ke_module.from_excel(source_file)
-        console.print(f"[green]OK[/green] {added} entidades nuevas, {updated} actualizadas desde {source_file.name}")
+        # from_excel now overwrites master DB as per new policy
+        _, added = ke_module.from_excel(source_file)
+        console.print(f"[green]OK[/green] Base de datos maestra sincronizada desde {source_file.name}")
     elif suffix == ".json":
-        # Detect if it's a DB export (list) or a mapping dict
         import json
         with open(source_file, encoding="utf-8") as f:
             data = json.load(f)

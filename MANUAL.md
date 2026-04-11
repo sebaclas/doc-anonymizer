@@ -304,3 +304,30 @@ anonymize run documento.pdf --threshold 92
 
 **Para reutilizar pseudónimos entre documentos:**
 Usar `--mapping` para partir de un mapeo previo, combinado con la base de datos para máxima cobertura automática.
+
+---
+
+## Suite de Diagnóstico
+
+Si encontrás una palabra o entidad que **debería ser detectada pero no lo es**, podés usar la suite de diagnóstico para entender por qué la herramienta la está ignorando.
+
+### Cómo usarlo
+
+1. **Agregar el caso problemático**: Abrí el archivo `tests/regression/cases.csv` y agregá una fila con el texto donde aparece la palabra y qué palabra esperás que sea detectada.
+   ```csv
+   id,text,expected,type
+   mi_error_01,"El documento menciona a Juan Perez","Juan Perez",PERSONA
+   ```
+
+2. **Ejecutar el diagnóstico**:
+   ```bash
+   python scripts/run_diagnostics.py
+   ```
+
+### Posibles causas de falla reportadas:
+- **FILTERED**: La palabra es demasiado corta (< 3 caracteres), está en la lista de `stopwords` (ej: "Empresa", "Servicio"), contiene saltos de línea, o solo contiene números/símbolos.
+- **SHADOWED**: Otra entidad (más larga o de mayor prioridad) la está ocultando. Por ejemplo, si se detecta "Juan Perez", no se detectará "Juan" individualmente.
+- **NER_REGEX_FAILURE**: Ni el modelo de IA (NER) ni las reglas de patrones (Regex) reconocieron la palabra.
+- **NOT_IN_TEXT**: El texto esperado no coincide exactamente (case-insensitive) con lo que escribiste en `cases.csv`.
+
+> **Tip**: Si compartís un error con el equipo de desarrollo, incluí la salida de este script para agilizar la solución.

@@ -47,7 +47,8 @@ DEFAULT_FUZZY_THRESHOLD = 85
 
 @dataclass
 class Settings:
-    db_path: str = str(APP_DIR / "known_entities.json")
+    # Use Excel as primary master database. .json is deprecated.
+    db_path: str = str(APP_DIR / "master_database.xlsx")
     patterns_path: str = str(APP_DIR / "custom_patterns.json")
     ner_models: list[str] = field(default_factory=lambda: list(DEFAULT_NER_MODELS))
     ner_stopwords: list[str] = field(default_factory=lambda: sorted(list(DEFAULT_STOPWORDS)))
@@ -78,7 +79,14 @@ class Settings:
             # Merit merge: only overwrite fields present in JSON
             # This ensures that if new settings are added to the class in the future,
             # old settings.json files won't break the app.
-            default_data = asdict(cls())
+            default_settings = cls()
+            default_data = asdict(default_settings)
+            
+            # Migration check: if old db_path is JSON, force update to default XLSX
+            if data.get("db_path", "").endswith(".json"):
+                data["db_path"] = default_data["db_path"]
+                logger.info("Migrando db_path de JSON a Excel en configuración.")
+
             for key in default_data:
                 if key not in data:
                     data[key] = default_data[key]
@@ -94,31 +102,42 @@ current_settings = Settings.load()
 
 
 def load_custom_patterns(path: str | Path | None = None) -> list[dict]:
-    """Legacy helper maintained for compatibility, now points to settings.patterns_path."""
+    """Load patterns from JSON. If file doesn't exist, initializes it with defaults."""
     config_path = Path(path) if path else Path(current_settings.patterns_path)
     if not config_path.exists():
-        return []
+        return create_default_config(config_path)
+    
     try:
         with open(config_path, encoding="utf-8") as f:
             data = json.load(f)
-        if not isinstance(data, list):
-            return []
-        return data
-    except Exception:
+        
+        # Support both old list format and potential new dict format
+        if isinstance(data, dict) and "patterns" in data:
+            return data["patterns"]
+        elif isinstance(data, list):
+            return data
+        return []
+    except Exception as e:
+        logger.error(f"Error cargando patrones en {config_path}: {e}")
         return []
 
 
-def create_default_config(path: str | Path | None = None):
-    """Legacy helper maintained for compatibility."""
+def save_custom_patterns(patterns: list[dict], path: str | Path | None = None):
+    """Save patterns to JSON."""
     config_path = Path(path) if path else Path(current_settings.patterns_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    example = [
-        {
-            "name": "Número de expediente",
-            "type": "PERSONALIZADO",
-            "pattern": "EXP-\\d{4,8}"
-        }
-    ]
+    
+    # Save as flat list for simplicity as per latest design
     with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(example, f, ensure_ascii=False, indent=2)
-    return config_path
+        json.dump(patterns, f, ensure_ascii=False, indent=2)
+
+
+def create_default_config(path: str | Path | None = None) -> list[dict]:
+    """Initializes the patterns file with DEFAULT_PATTERNS from the patterns detector."""
+    from anonymizer.detectors.patterns import DEFAULT_PATTERNS
+    
+    config_path = Path(path) if path else Path(current_settings.patterns_path)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    save_custom_patterns(DEFAULT_PATTERNS, config_path)
+    return DEFAULT_PATTERNS

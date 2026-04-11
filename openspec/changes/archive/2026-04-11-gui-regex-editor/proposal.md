@@ -7,6 +7,7 @@ Se necesita una interfaz gráfica accesible para que cualquier usuario pueda:
 2. Agregar/editar/eliminar patrones custom con validación visual.
 3. Probar un patrón contra texto de ejemplo antes de guardarlo.
 4. Activar/desactivar templates predefinidos comunes.
+5. Externalizar patrones built-in (hardcodeados) para que sean gestionables desde la configuración.
 
 ## What Changes
 

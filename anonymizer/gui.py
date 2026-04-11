@@ -112,6 +112,11 @@ class AnonymizerGUI(ctk.CTk):
                                            command=self._manage_db)
         self.btn_manage_db.pack(side="right")
 
+        self.btn_regex_editor = ctk.CTkButton(self.frame_db, text="🔍 Editor de Regex", 
+                                           fg_color="#6c757d", hover_color="#5a6268",
+                                           command=self._open_regex_editor)
+        self.btn_regex_editor.pack(side="right", padx=10)
+
         # Barra de progreso / Status
         self.status_bar = ctk.CTkLabel(self, text="Listo", anchor="w")
         self.status_bar.pack(side="bottom", fill="x", padx=10, pady=5)
@@ -157,13 +162,22 @@ class AnonymizerGUI(ctk.CTk):
 
     def _detection_thread(self):
         try:
+            from anonymizer.known_entities import load
+            from anonymizer.matcher import EntityMatcher
+
             # 1. Extraer (usa dispatcher)
             doc = extract_document(self.doc_path)
             
-            # 2. Detectar (Pasar el objeto doc completo y la DB al detector)
-            entities = detector.detect_all(doc, known_entities=self.matcher.db)
+            # 2. Cargar DB fresca del Excel
+            fresh_db = load()
             
-            # 3. Match con DB
+            # 3. Detectar
+            entities = detector.detect_all(doc, known_entities=fresh_db)
+            
+            # 4. Match con DB
+            matcher = EntityMatcher()
+            matcher.db = fresh_db
+            
             rows = []
             seen = set()
             for ent in entities:
@@ -172,7 +186,7 @@ class AnonymizerGUI(ctk.CTk):
                     continue
                 seen.add(ent_key)
                 
-                pseudo = self.matcher.match(ent.text, ent.entity_type)
+                pseudo = matcher.match(ent.text, ent.entity_type)
                 rows.append({
                     "original": ent.text,
                     "tipo": ent.entity_type.value,
@@ -271,29 +285,34 @@ class AnonymizerGUI(ctk.CTk):
         messagebox.showerror("Error", msg)
 
     def _manage_db(self):
+        """Abre la base de datos maestra en Excel directamente."""
         try:
             from anonymizer import known_entities as ke
-            import tempfile
+            db_path = Path(current_settings.db_path)
             
-            # Exportar DB actual a un archivo temporal para editar
-            temp_dir = Path(tempfile.gettempdir())
-            db_excel = temp_dir / "doc_anonymizer_master_db.xlsx"
+            # Aseguramos que el archivo exista antes de abrirlo
+            if not db_path.exists():
+                ke.save([]) # Crea archivo vacío con cabeceras
+                
+            self.status_bar.configure(text=f"Abriendo base de datos maestra: {db_path.name}")
+            os.startfile(db_path)
             
-            count = ke.to_excel(db_excel)
-            self.status_bar.configure(text=f"Exportadas {count} entidades para edición.")
-            
-            os.startfile(db_excel)
-            messagebox.showinfo("Gestión de DB", 
+            messagebox.showinfo("Base de Datos Maestra", 
                                 "Se ha abierto el Excel de la Base de Datos Maestra.\n\n"
-                                "Puedes editar, añadir o borrar filas.\n"
-                                "Los cambios se guardan en el archivo temporal, para sincronizarlos "
-                                "debes usar el comando 'anonymize db import' o simplemente tus cambios "
-                                "se aplicarán si guardas y el programa refresca.")
-            # Nota: Para una versión pro, podríamos añadir un botón "Importar" explícito.
-            # Por ahora, abrimos el Excel para permitir la vista/edición manual.
+                                "Los cambios que guardes en Excel se aplicarán automáticamente "
+                                "la próxima vez que inicies un proceso de detección.\n\n"
+                                "Nota: Si borras filas en el Excel, dejarán de detectarse.")
             
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir la DB: {str(e)}")
+
+    def _open_regex_editor(self):
+        try:
+            from anonymizer.regex_editor import RegexEditorWindow
+            editor = RegexEditorWindow(self)
+            editor.focus()
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo abrir el editor de regex: {str(e)}")
 
     def _open_settings(self):
         """Abre el archivo settings.json para edición manual."""

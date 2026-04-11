@@ -62,6 +62,7 @@ sample_docs/
 !/pyproject.toml
 !/requirements.txt
 !/build_exe.py
+!/CHANGELOG.md
 
 # Allow directories (the /* above ignored them)
 !/.agent/

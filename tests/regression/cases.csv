@@ -1,0 +1,7 @@
+id,text,expected,type
+stopword_001,"El contrato se firmó ayer en Buenos Aires",contrato,ORG
+shadow_001,"Ignacio Grossi asistió a la reunión",Ignacio,PERSON
+success_001,"Juan Perez vive en Madrid",Juan Perez,PERSON
+success_002,"Contactar a soporte@empresa.com para ayuda",soporte@empresa.com,EMAIL
+success_003,"El documento es D.N.I. 12.613.077",D.N.I. 12.613.077,DNI
+success_004,"la patente numero 2020/0005950 está buenísima",2020/0005950, personalizado

@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict
 from anonymizer.models import EntityType
 from anonymizer.config import current_settings
 
-def _get_db_path():
+def _get_db_path() -> Path:
     return Path(current_settings.db_path)
 
 
@@ -39,29 +39,50 @@ class KnownEntity:
         return [self.original] + self.aliases
 
 
+def migrate_old_json():
+    """If old JSON exists and Excel doesn't, migrate data."""
+    old_json = _get_db_path().parent / "known_entities.json"
+    new_xlsx = _get_db_path()
+    
+    if old_json.exists() and not new_xlsx.exists():
+        try:
+            with open(old_json, encoding="utf-8") as f:
+                data = json.load(f)
+            entities = [KnownEntity.from_dict(e) for e in data]
+            save(entities)
+            # Rename old file to avoid re-migration
+            old_json.rename(old_json.with_suffix(".json.migrated"))
+        except Exception:
+            pass
+
+
 def load(path: Path | None = None) -> list[KnownEntity]:
+    """Load from Excel. If Excel is missing, try migrating from JSON."""
     db_path = path or _get_db_path()
+    
+    # Check for migration first
+    if not db_path.exists() and path is None:
+        migrate_old_json()
+        
     if not db_path.exists():
-        # Aseguramos que el directorio exista para futuras escrituras
-        db_path.parent.mkdir(parents=True, exist_ok=True)
         return []
+        
+    # We use from_excel logic internally but returning the list
     try:
-        with open(db_path, encoding="utf-8") as f:
-            data = json.load(f)
-        return [KnownEntity.from_dict(e) for e in data]
-    except (json.JSONDecodeError, ValueError):
-        # Si el archivo está corrupto o vacío, devolvemos lista vacía
+        return _load_from_excel_file(db_path)
+    except Exception as e:
+        # Fallback/Error handling
         return []
 
 
 def save(entities: list[KnownEntity], path: Path | None = None):
+    """Save the entities list directly to Excel."""
     db_path = path or _get_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(db_path, "w", encoding="utf-8") as f:
-        json.dump([e.to_dict() for e in entities], f, ensure_ascii=False, indent=2)
+    _save_to_excel_file(entities, db_path)
 
 
 def add(entity: KnownEntity, path: Path | None = None):
+    """Add/Update entity in the Excel DB."""
     entities = load(path)
     # Replace if original already exists
     entities = [e for e in entities if e.original != entity.original]
@@ -70,6 +91,7 @@ def add(entity: KnownEntity, path: Path | None = None):
 
 
 def remove(original: str, path: Path | None = None) -> bool:
+    """Remove entity from the Excel DB."""
     entities = load(path)
     before = len(entities)
     entities = [e for e in entities if e.original != original]
@@ -79,8 +101,30 @@ def remove(original: str, path: Path | None = None) -> bool:
     return False
 
 
+def to_excel(excel_path: Path, db_path: Path | None = None):
+    """
+    Deprecated: DB is already an Excel. 
+    This now acts as a 'Copy To' function for user managed file.
+    """
+    entities = load(db_path)
+    _save_to_excel_file(entities, excel_path)
+    return len(entities)
+
+
+def from_excel(excel_path: Path, db_path: Path | None = None) -> tuple[int, int]:
+    """
+    Import/Update the master DB from an external Excel file.
+    Since we are 'Excel as Master', this effectively synchronizes 
+    the external file content into our persistent master file.
+    """
+    new_entities = _load_from_excel_file(excel_path)
+    # If the user wants Excel to Rule, we replace the whole DB
+    save(new_entities, db_path)
+    return 0, len(new_entities) # Dummy counts for backward compat
+
+
 def import_from_mapping(mapping: dict[str, str], entity_type: str = "PERSONALIZADO",
-                         path: Path | None = None):
+                         path: Path | None = None) -> int:
     """Bulk-import from an existing JSON mapping dict."""
     entities = load(path)
     existing = {e.original for e in entities}
@@ -98,17 +142,42 @@ def import_from_mapping(mapping: dict[str, str], entity_type: str = "PERSONALIZA
     return added
 
 
-def to_excel(excel_path: Path, db_path: Path | None = None):
-    """Export the DB to an editable Excel file."""
+def _load_from_excel_file(path: Path) -> list[KnownEntity]:
+    import openpyxl
+    wb = openpyxl.load_workbook(str(path))
+    ws = wb.active
+    entities = []
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row or not row[0] or not row[1]:
+            continue
+        original = str(row[0]).strip()
+        pseudonym = str(row[1]).strip()
+        entity_type = str(row[2]).strip() if row[2] else "PERSONALIZADO"
+        aliases_raw = str(row[3]).strip() if row[3] else ""
+        aliases = [a.strip() for a in aliases_raw.split(",") if a.strip()] if aliases_raw else []
+        match_mode = str(row[4]).strip().lower() if len(row) > 4 and row[4] else "palabra"
+        if match_mode not in ("palabra", "substring"):
+            match_mode = "palabra"
+            
+        entities.append(KnownEntity(
+            original=original,
+            pseudonym=pseudonym,
+            entity_type=entity_type,
+            aliases=aliases,
+            match_mode=match_mode
+        ))
+    return entities
+
+
+def _save_to_excel_file(entities: list[KnownEntity], path: Path):
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment
-
-    entities = load(db_path)
-
+    
+    path.parent.mkdir(parents=True, exist_ok=True)
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Entidades conocidas"
-
+    
     headers = ["Original", "Pseudonimo", "Tipo", "Aliases (separados por coma)", "Modo"]
     header_fill = PatternFill("solid", fgColor="2E75B6")
     header_font = Font(bold=True, color="FFFFFF")
@@ -131,56 +200,10 @@ def to_excel(excel_path: Path, db_path: Path | None = None):
     ws.column_dimensions["C"].width = 18
     ws.column_dimensions["D"].width = 40
     ws.column_dimensions["E"].width = 12
-
-    # Freeze header row
     ws.freeze_panes = "A2"
-
-    wb.save(str(excel_path))
-    return len(entities)
-
-
-def from_excel(excel_path: Path, db_path: Path | None = None) -> tuple[int, int]:
-    """
-    Import/update the DB from an Excel file.
-    Rows with empty Original or Pseudonimo are skipped.
-    Returns (updated_count, added_count).
-    """
-    import openpyxl
-
-    wb = openpyxl.load_workbook(str(excel_path))
-    ws = wb.active
-
-    existing = {e.original: e for e in load(db_path)}
-    updated = added = 0
-
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        original = str(row[0]).strip() if row[0] else ""
-        pseudonym = str(row[1]).strip() if row[1] else ""
-        entity_type = str(row[2]).strip() if row[2] else "PERSONALIZADO"
-        aliases_raw = str(row[3]).strip() if row[3] else ""
-        aliases = [a.strip() for a in aliases_raw.split(",") if a.strip()] if aliases_raw else []
-        match_mode_raw = str(row[4]).strip().lower() if len(row) > 4 and row[4] else "palabra"
-        match_mode = match_mode_raw if match_mode_raw in ("palabra", "substring") else "palabra"
-
-        if not original or not pseudonym:
-            continue
-
-        if original in existing:
-            e = existing[original]
-            e.pseudonym = pseudonym
-            e.entity_type = entity_type
-            e.aliases = aliases
-            e.match_mode = match_mode
-            updated += 1
-        else:
-            existing[original] = KnownEntity(
-                original=original,
-                pseudonym=pseudonym,
-                entity_type=entity_type,
-                aliases=aliases,
-                match_mode=match_mode,
-            )
-            added += 1
-
-    save(list(existing.values()), db_path)
-    return updated, added
+    
+    try:
+        wb.save(str(path))
+    except PermissionError:
+        # File is likely open in Excel
+        raise PermissionError(f"No se pudo guardar en {path.name}. Por favor cerra el archivo en Excel y volvé a intentar.")
