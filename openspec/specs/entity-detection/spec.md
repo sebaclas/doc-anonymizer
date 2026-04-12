@@ -24,3 +24,10 @@ The system MUST support rigid struct matching for predefined attributes like CUI
 - **WHEN** parsing formatted strings like emails or phone numbers
 - **THEN** system identifies the exact bounds and extracts them without false positives
 
+### Requirement: Detection context capture
+The system MUST capture a surrounding text window for every detected entity to provide operational context. This window SHALL consist of up to 5 words before the match and 5 words after the match. The captured context MUST be stored as metadata with the entity detection.
+
+#### Scenario: Extracting context for a name
+- **WHEN** "Juan Perez" is detected in "El ingeniero Juan Perez es el líder."
+- **THEN** the system SHALL store a context string similar to "... El ingeniero [Juan Perez] es el líder ..."
+

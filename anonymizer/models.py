@@ -22,6 +22,7 @@ class Entity:
     start: int
     end: int
     source: str  # "ner" | "regex" | "manual"
+    context: str = ""
 
     def __hash__(self):
         return hash((self.text, self.entity_type))

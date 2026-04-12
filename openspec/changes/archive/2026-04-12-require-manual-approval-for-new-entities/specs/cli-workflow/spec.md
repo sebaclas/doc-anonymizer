@@ -1,8 +1,5 @@
-# cli-workflow Specification
+## MODIFIED Requirements
 
-## Purpose
-TBD - created by archiving change initial-spec. Update Purpose after archive.
-## Requirements
 ### Requirement: CLI commands and options
 The CLI MUST expose `run`, `detect`, `apply` and `db` commands using Typer framework.
 
@@ -15,11 +12,3 @@ The CLI MUST expose `run`, `detect`, `apply` and `db` commands using Typer frame
 - **WHEN** user executes `anonymize detect <file>`
 - **THEN** system prints or outputs recognized entities without modifying documents.
 - **AND THEN** if Excel output is requested, new entities SHALL have suggested pseudonyms pre-filled, but the `Accion` column SHALL be empty for non-database detections.
-
-### Requirement: Expose DB management
-The CLI MUST provide options to list, add, remove, and export/import the known entities database.
-
-#### Scenario: Exporting local DB
-- **WHEN** user invokes `anonymize db export`
-- **THEN** system produces an Excel file for manual tweaking
-

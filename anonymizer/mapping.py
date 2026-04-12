@@ -13,15 +13,61 @@ except ImportError:
     _EXCEL_AVAILABLE = False
 
 
-def build_mapping(entities: list[Entity], existing: dict[str, str] | None = None) -> dict[str, str]:
+class AutoPseudonymGenerator:
+    """
+    Generates sequential pseudonyms based on entity category.
+    Example: Persona1, Persona2, Org1, Org2...
+    """
+    PREFIX_MAP = {
+        "PERSONA": "Persona",
+        "PERSON": "Persona",
+        "ORGANIZACIÓN": "Org",
+        "ORG": "Org",
+        "LUGAR": "Lugar",
+        "LOC": "Lugar",
+        "LOCATION": "Lugar",
+        "EMAIL": "Email",
+        "TELÉFONO": "Tel",
+        "PHONE": "Tel",
+        "DNI/NIE": "Id",
+        "ID_NUMBER": "Id",
+    }
+    DEFAULT_PREFIX = "Ent"
+
+    def __init__(self):
+        self.counters = {}  # prefix -> count
+        self.assigned = {}  # original_text -> pseudonym
+
+    def get_pseudonym(self, text: str, entity_type: str) -> str:
+        if text in self.assigned:
+            return self.assigned[text]
+
+        prefix = self.PREFIX_MAP.get(entity_type.upper(), self.DEFAULT_PREFIX)
+        
+        count = self.counters.get(prefix, 0) + 1
+        self.counters[prefix] = count
+        
+        pseudo = f"{prefix}{count}"
+        self.assigned[text] = pseudo
+        return pseudo
+
+
+def build_mapping(
+    entities: list[Entity], 
+    existing: dict[str, str] | None = None,
+    generator: AutoPseudonymGenerator | None = None
+) -> dict[str, str]:
     """
     Build a mapping dict for the given entities.
-    Entities not yet in the mapping get an empty placeholder.
+    Entities not yet in the mapping get an empty placeholder or a suggestion if generator provided.
     """
     mapping = dict(existing or {})
     for ent in entities:
         if ent.text not in mapping:
-            mapping[ent.text] = ""
+            if generator:
+                mapping[ent.text] = generator.get_pseudonym(ent.text, ent.entity_type)
+            else:
+                mapping[ent.text] = ""
     return mapping
 
 
@@ -78,6 +124,8 @@ def _create_instruction_sheet(wb: "openpyxl.Workbook"):
         ("Columnas:", "bold", 12),
         ("Original", "bold", 11),
         ("  El texto encontrado en el documento.", None, 11),
+        ("Contexto", "bold", 11),
+        ("  Frase donde se encontró el texto (5 palabras antes y después).", None, 11),
         ("Tipo", "bold", 11),
         ("  La categoría (PERSONA, ORGANIZACIÓN, etc.).", None, 11),
         ("Pseudónimo", "bold", 11),
@@ -85,7 +133,8 @@ def _create_instruction_sheet(wb: "openpyxl.Workbook"):
         ("Acción", "bold", 11),
         ("  - s : Aceptar y procesar este reemplazo.", None, 11),
         ("  - n : Ignorar. No reemplazar.", None, 11),
-        ("  - e : Editar (simplemente modifica el campo Pseudónimo y escribe 's').", None, 11),
+        ("  - vacio : idem n).", None, 11),
+        ("  - Para modificar un pseudonimo detectado simplemente editalo y ponele s", None, 11),
         ("Origen", "bold", 11),
         ("  De dónde provino el hit. (DB, REGEX, NER).", None, 11),
         ("Guardar DB", "bold", 11),
@@ -93,7 +142,7 @@ def _create_instruction_sheet(wb: "openpyxl.Workbook"):
         ("", None, 11),
         ("Funciones Avanzadas (Base de Datos Maestra):", "bold", 12),
         ("Aliases", "bold", 11),
-        ("  Diferentes nombres para lo mismo (ej: 'INVAP, INVAP S.E.'). Separar por comas.", None, 11),
+        ("  Diferentes nombres para lo mismo (ej: 'ACME, ACME Corp, ACME S.A.'). Separar por comas.", None, 11),
         ("Modo", "bold", 11),
         ("  - palabra: Búsqueda exacta (evita cambiar 'Ana' dentro de 'Mariana'). RECOMENDADO.", None, 11),
         ("  - substring: Búsqueda en cualquier parte (ideal para siglas o códigos).", None, 11),
@@ -119,7 +168,7 @@ def save_extended_excel(data_rows: list[dict], path: str | Path):
     ws = wb.active
     ws.title = "Detecciones"
 
-    headers = ["Original", "Tipo", "Pseudonimo", "Accion", "Guardar DB", "Origen", "Aliases", "Modo"]
+    headers = ["Original", "Contexto", "Pseudonimo", "Tipo", "Accion", "Guardar DB", "Origen", "Aliases", "Modo"]
     for col_idx, header in enumerate(headers, start=1):
         cell = ws.cell(row=1, column=col_idx, value=header)
         cell.font = openpyxl.styles.Font(bold=True)
@@ -129,33 +178,35 @@ def save_extended_excel(data_rows: list[dict], path: str | Path):
 
     for row_idx, row_dict in enumerate(data_rows, start=2):
         ws.cell(row=row_idx, column=1, value=row_dict.get("original", ""))
-        ws.cell(row=row_idx, column=2, value=row_dict.get("tipo", ""))
+        ws.cell(row=row_idx, column=2, value=row_dict.get("contexto", ""))
         ws.cell(row=row_idx, column=3, value=row_dict.get("pseudonimo", ""))
-        ws.cell(row=row_idx, column=4, value=row_dict.get("accion", ""))
-        ws.cell(row=row_idx, column=5, value=row_dict.get("guardar_db", ""))
+        ws.cell(row=row_idx, column=4, value=row_dict.get("tipo", ""))
+        ws.cell(row=row_idx, column=5, value=row_dict.get("accion", ""))
+        ws.cell(row=row_idx, column=6, value=row_dict.get("guardar_db", ""))
         
         origen = row_dict.get("origen", "")
-        ws.cell(row=row_idx, column=6, value=origen)
+        ws.cell(row=row_idx, column=7, value=origen)
 
         # New columns for DB sync
         aliases_list = row_dict.get("aliases", [])
         aliases_str = ", ".join(aliases_list) if isinstance(aliases_list, list) else str(aliases_list)
-        ws.cell(row=row_idx, column=7, value=aliases_str)
-        ws.cell(row=row_idx, column=8, value=row_dict.get("modo", "palabra"))
+        ws.cell(row=row_idx, column=8, value=aliases_str)
+        ws.cell(row=row_idx, column=9, value=row_dict.get("modo", "palabra"))
         
         # Color row if origen is DB
         if origen == "DB":
-            for col in range(1, 9):
+            for col in range(1, 10):
                 ws.cell(row=row_idx, column=col).fill = green_fill
 
     ws.column_dimensions["A"].width = 35
-    ws.column_dimensions["B"].width = 20
-    ws.column_dimensions["C"].width = 35
-    ws.column_dimensions["D"].width = 12
+    ws.column_dimensions["B"].width = 50 
+    ws.column_dimensions["C"].width = 25
+    ws.column_dimensions["D"].width = 35
     ws.column_dimensions["E"].width = 12
     ws.column_dimensions["F"].width = 12
-    ws.column_dimensions["G"].width = 40
-    ws.column_dimensions["H"].width = 14
+    ws.column_dimensions["G"].width = 12
+    ws.column_dimensions["H"].width = 40
+    ws.column_dimensions["I"].width = 14
     
     _create_instruction_sheet(wb)
 
@@ -174,25 +225,36 @@ def load_extended_data(path: str | Path) -> list[dict]:
     ws = wb["Detecciones"] if "Detecciones" in wb.sheetnames else wb.active
 
     results = []
+    # Determinamos si es el formato nuevo con Contexto o el viejo
+    header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True))
+    has_context = "Contexto" in header_row if header_row else False
+    
+    idx_pseudo = 2 if has_context else 1
+    idx_tipo = 3 if has_context else 2
+    idx_accion = 4 if has_context else 3
+    idx_save_db = 5 if has_context else 4
+    idx_aliases = 7 if has_context else 6
+    idx_modo = 8 if has_context else 7
+
     for row in ws.iter_rows(min_row=2, values_only=True):
-        if len(row) < 5 or not row[0]: # Original, Tipo, Pseudo, Accion, GuardarDB
+        if len(row) < 5 or not row[0]: 
             continue
             
         original = str(row[0])
-        pseudo = str(row[2]) if row[2] else ""
-        accion = str(row[3]).lower().strip() if row[3] else ""
-        save_db = str(row[4]).lower().strip() if row[4] else ""
-        tipo = str(row[1]) if row[1] else "PERSONALIZADO"
+        pseudo = str(row[idx_pseudo]) if row[idx_pseudo] else ""
+        accion = str(row[idx_accion]).lower().strip() if row[idx_accion] else ""
+        save_db = str(row[idx_save_db]).lower().strip() if row[idx_save_db] else ""
+        tipo = str(row[idx_tipo]) if row[idx_tipo] else "PERSONALIZADO"
 
         # Optional new columns
         aliases = []
-        if len(row) >= 7 and row[6]:
-            raw_aliases = str(row[6])
+        if len(row) > idx_aliases and row[idx_aliases]:
+            raw_aliases = str(row[idx_aliases])
             aliases = [a.strip() for a in raw_aliases.split(",") if a.strip()]
         
         modo = "palabra"
-        if len(row) >= 8 and row[7]:
-            raw_modo = str(row[7]).strip().lower()
+        if len(row) > idx_modo and row[idx_modo]:
+            raw_modo = str(row[idx_modo]).strip().lower()
             if raw_modo in ["palabra", "substring"]:
                 modo = raw_modo
 

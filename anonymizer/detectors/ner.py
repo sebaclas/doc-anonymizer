@@ -64,7 +64,7 @@ def detect(text: str) -> list[Entity]:
     Run NER on text, processing each line independently.
 
     Processing line-by-line prevents spaCy from merging entities that appear
-    on consecutive lines (e.g. "Darío Giussi\\nBlack River Technology" being
+    on consecutive lines (e.g. "Ricardo Gómez\\nEmpresa Asociada" being
     tagged as a single entity span).
     """
     nlp = _load_model()

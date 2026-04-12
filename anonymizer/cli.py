@@ -108,14 +108,18 @@ def run(
         final_mapping.update(map_module.load_json(mapping_file))
 
     # 5. Fill pseudonyms for new entities
-    new_mapping = map_module.build_mapping(confirmed_new, final_mapping)
-    empty_keys = map_module.validate(new_mapping)
-    if empty_keys:
-        console.print(f"\n[bold cyan]Asigna pseudonimos para {len(empty_keys)} entidades nuevas:[/bold cyan]\n")
-        for key in empty_keys:
-            # Re-ask until user provides a non-empty pseudonym
+    generator = map_module.AutoPseudonymGenerator()
+    new_mapping = map_module.build_mapping(confirmed_new, final_mapping, generator=generator)
+    
+    if confirmed_new:
+        console.print(f"\n[bold cyan]Asigna/confirma pseudonimos para {len(confirmed_new)} entidades nuevas:[/bold cyan]\n")
+        for ent in confirmed_new:
+            key = ent.text
+            suggested = new_mapping[key]
+            
+            # Use Prompt.ask with the suggestion as default
             while True:
-                pseudo = Prompt.ask(f"  [white]{key}[/white] -> pseudonimo")
+                pseudo = Prompt.ask(f"  [white]{key}[/white] -> pseudonimo", default=suggested)
                 if pseudo.strip():
                     break
                 console.print("  [yellow]El pseudonimo no puede estar vacio.[/yellow]")
@@ -126,14 +130,11 @@ def run(
             save_choice = Prompt.ask(
                 f"  [dim]Guardar \"{key}\" -> \"{pseudo}\" en la base de datos?[/dim] [green]S[/green]i / [red]N[/red]o",
                 choices=["s", "n", "S", "N"],
-                default="s",
+                default="s" if ent.source == "regex" else "n",
             ).lower()
             if save_choice == "s":
                 from anonymizer.models import EntityType
-                etype = next(
-                    (e.entity_type.value for e in confirmed_new if e.text == key),
-                    EntityType.CUSTOM.value,
-                )
+                etype = ent.entity_type.value
                 ke_module.add(ke_module.KnownEntity(
                     original=key,
                     pseudonym=pseudo,
@@ -235,6 +236,7 @@ def detect(
             db_matches_dict = {m.detected_text: m for m in db_matches}
             
             data_rows = []
+            generator = map_module.AutoPseudonymGenerator()
             for e in unique_entities:
                 if e.text in db_matches_dict:
                     match_res = db_matches_dict[e.text]
@@ -243,14 +245,18 @@ def detect(
                     accion = "s"
                 else:
                     origen = str(e.source).upper()
-                    pseudonimo = ""
-                    accion = "s" if origen == "REGEX" else ""
+                    # Assign an auto-pseudonym
+                    pseudonimo = generator.get_pseudonym(e.text, e.entity_type.value)
+                    # Require explicit approval
+                    accion = ""
                     
                 data_rows.append({
                     "original": e.text,
+                    "contexto": e.context,
                     "tipo": e.entity_type.value,
                     "pseudonimo": pseudonimo,
                     "accion": accion,
+                    "guardar_db": "",
                     "origen": origen,
                     "aliases": match_res.known.aliases if origen == "DB" else [],
                     "modo": match_res.known.match_mode if origen == "DB" else "palabra"
@@ -314,6 +320,46 @@ def apply(
             replacer.anonymize_pdf(document, out_path, mapping, modes)
 
     console.print(f"[bold green]OK[/bold green] {out_path}")
+
+
+@app.command()
+def deanonymize(
+    document: Path = typer.Argument(..., help="Ruta al documento anonimizado (.docx o .pdf)"),
+    output: Path = typer.Argument(..., help="Ruta del documento restaurado de salida"),
+    reversal: Optional[Path] = typer.Option(
+        None, "--reversal", "-r",
+        help="Ruta al sidecar de reversión (.reversal.json). Si se omite, se busca <documento>.reversal.json"
+    ),
+):
+    """Revierte la anonimización usando el archivo sidecar de reversión."""
+    from anonymizer import replacer
+
+    if not document.exists():
+        console.print(f"[red]Archivo no encontrado: {document}[/red]")
+        raise typer.Exit(1)
+
+    suffix = document.suffix.lower()
+    if suffix not in (".docx", ".pdf"):
+        console.print(f"[red]Formato no soportado: '{suffix}'. Usa .docx o .pdf[/red]")
+        raise typer.Exit(1)
+
+    # Auto-detect sidecar if not provided
+    reversal_path = reversal if reversal else Path(str(document) + ".reversal.json")
+    if not reversal_path.exists():
+        console.print(
+            f"[red]Archivo de reversión no encontrado: {reversal_path}[/red]\n"
+            "[dim]Solo se pueden revertir documentos anonimizados con esta herramienta.\n"
+            "Si el sidecar fue movido, usa --reversal <ruta>.[/dim]"
+        )
+        raise typer.Exit(1)
+
+    with console.status("Revirtiendo anonimización..."):
+        if suffix == ".docx":
+            replacer.deanonymize_docx(document, output, reversal_path)
+        else:
+            replacer.deanonymize_pdf(document, output, reversal_path)
+
+    console.print(f"[bold green]Listo:[/bold green] {output}")
 
 
 @app.command()

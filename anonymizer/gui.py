@@ -117,6 +117,11 @@ class AnonymizerGUI(ctk.CTk):
                                            command=self._open_regex_editor)
         self.btn_regex_editor.pack(side="right", padx=10)
 
+        self.btn_revert = ctk.CTkButton(self.frame_db, text="↩ Revertir Anonimización",
+                                        fg_color="#8e44ad", hover_color="#6c3483",
+                                        command=self._run_deanonymize)
+        self.btn_revert.pack(side="right", padx=10)
+
         # Barra de progreso / Status
         self.status_bar = ctk.CTkLabel(self, text="Listo", anchor="w")
         self.status_bar.pack(side="bottom", fill="x", padx=10, pady=5)
@@ -180,20 +185,34 @@ class AnonymizerGUI(ctk.CTk):
             
             rows = []
             seen = set()
+            generator = mapping_mod.AutoPseudonymGenerator()
+
             for ent in entities:
                 ent_key = (ent.text, ent.entity_type)
                 if ent_key in seen:
                     continue
                 seen.add(ent_key)
                 
+                # Try to find in Master DB
                 pseudo = matcher.match(ent.text, ent.entity_type)
+                
+                if pseudo:
+                    origen = "DB"
+                    accion = "s"
+                else:
+                    # Suggestions for new entities
+                    pseudo = generator.get_pseudonym(ent.text, ent.entity_type.value)
+                    origen = ent.source.upper()
+                    accion = ""  # Manual approval required for new entities
+
                 rows.append({
                     "original": ent.text,
+                    "contexto": ent.context,
                     "tipo": ent.entity_type.value,
-                    "pseudonimo": pseudo or "",
-                    "accion": "s" if pseudo else "",
-                    "guardar_db": "", # Columna nueva explícita
-                    "origen": "DB" if pseudo else "NER"
+                    "pseudonimo": pseudo,
+                    "accion": accion,
+                    "guardar_db": "", 
+                    "origen": origen
                 })
             
             # 4. Guardar
@@ -313,6 +332,75 @@ class AnonymizerGUI(ctk.CTk):
             editor.focus()
         except Exception as e:
             messagebox.showerror("Error", f"No se pudo abrir el editor de regex: {str(e)}")
+
+    def _run_deanonymize(self):
+        """Abre el picker de archivo anonimizado y lanza la reversión en background."""
+        filename = filedialog.askopenfilename(
+            title="Seleccionar documento anonimizado",
+            filetypes=[("Documentos Soportados", "*.docx *.pdf"), ("Word", "*.docx"), ("PDF", "*.pdf")],
+        )
+        if not filename:
+            return
+
+        anon_path = Path(filename)
+        reversal_path = Path(str(anon_path) + ".reversal.json")
+
+        if not reversal_path.exists():
+            messagebox.showerror(
+                "Archivo de reversión no encontrado",
+                f"Este archivo no tiene un archivo de reversión asociado ('{reversal_path.name}').\n\n"
+                "Solo se pueden revertir documentos anonimizados con esta herramienta.\n"
+                "Si el sidecar fue movido, usa el comando CLI:\n"
+                f"  anonymize deanonymize {anon_path.name} <salida> --reversal <ruta>"
+            )
+            return
+
+        # Ask for output path
+        out_filename = filedialog.asksaveasfilename(
+            title="Guardar documento restaurado",
+            defaultextension=anon_path.suffix,
+            initialfile=f"{anon_path.stem}_original{anon_path.suffix}",
+            filetypes=[("Word", "*.docx"), ("PDF", "*.pdf")],
+        )
+        if not out_filename:
+            return
+
+        output_path = Path(out_filename)
+        self.btn_revert.configure(state="disabled", text="Revirtiendo...")
+        self.status_bar.configure(text=f"Revirtiendo {anon_path.name}...")
+
+        threading.Thread(
+            target=self._deanonymize_thread,
+            args=(anon_path, output_path, reversal_path),
+            daemon=True,
+        ).start()
+
+    def _deanonymize_thread(self, anon_path: Path, output_path: Path, reversal_path: Path):
+        try:
+            from anonymizer import replacer
+            if anon_path.suffix.lower() == ".docx":
+                replacer.deanonymize_docx(anon_path, output_path, reversal_path)
+            else:
+                replacer.deanonymize_pdf(anon_path, output_path, reversal_path)
+
+            self.after(0, lambda: self._deanonymize_success(output_path))
+        except Exception as e:
+            error_str = str(e)
+            self.after(0, lambda: self._deanonymize_error(error_str))
+
+    def _deanonymize_success(self, output_path: Path):
+        self.btn_revert.configure(state="normal", text="↩ Revertir Anonimización")
+        self.status_bar.configure(text=f"Documento restaurado: {output_path.name}")
+        if messagebox.askyesno(
+            "Completado",
+            f"Documento restaurado exitosamente:\n{output_path.name}\n\n¿Deseas abrir la carpeta?"
+        ):
+            os.startfile(output_path.parent)
+
+    def _deanonymize_error(self, msg: str):
+        self.btn_revert.configure(state="normal", text="↩ Revertir Anonimización")
+        self.status_bar.configure(text="Error en reversión.")
+        messagebox.showerror("Error al revertir", msg)
 
     def _open_settings(self):
         """Abre el archivo settings.json para edición manual."""

@@ -30,8 +30,9 @@ python -m anonymizer.gui
 ### Funciones de la Interfaz:
 1.  **Paso 1: Seleccionar Documento**: Elige archivos `.docx` o `.pdf`.
 2.  **Paso 2: Detectar y Generar Excel**: Analiza el archivo y crea un Excel de revisión.
-3.  **Paso 3: Revisión en Excel**: Marca con `s` la columna **Accion** para los cambios y **Guardar DB** para alimentarla permanentemente.
-4.  **Paso 4: Generar Documento**: Presiona el botón verde.
+3.  **Paso 3: Revisión en Excel**: Marcá con `s` la columna **Accion** para las entidades que querés anonimizar. Las entidades ya conocidas en la BD vienen pre-marcadas.
+4.  **Paso 4: Generar Documento**: Presiona el botón verde. Se generará el documento anonimizado junto con su archivo `.reversal.json` de reversión.
+5.  **Revertir anonimización**: Botón para restaurar un documento previamente anonimizado a su versión original. Usa el sidecar `.reversal.json` generado automáticamente al anonimizar. Si ese archivo no está presente, la reversión no es posible.
 
 ---
 
@@ -70,19 +71,20 @@ Para cada entidad no reconocida por la base de datos, el sistema pregunta qué h
 | **No** | `n` | Descarta la entidad. El texto NO se reemplaza en el documento. Usar para falsos positivos ("Las Partes", "El Contratante", nombres de países genéricos, etc.). |
 | **Editar** | `e` | Corrige el texto detectado antes de aceptarlo. Usar cuando el NER capturó texto de más (ej: detectó `"Corrales Rosana Valeria-M.B.I. Saneamiento"` pero solo querés reemplazar `"Corrales Rosana Valeria"`). |
 
-> **Nota sobre los defaults**: Las entidades detectadas por NER tienen default `n` (Enter = rechazar), porque suelen generar más falsos positivos. Las detectadas por regex tienen default `s` (Enter = aceptar), porque son muy precisas.
+> **Nota sobre los defaults**: Todas las entidades **nuevas** (no encontradas en la base de datos) requieren aprobación explícita — tanto las detectadas por NER como por Regex. El sistema **no auto-aprueba** ninguna entidad nueva para evitar falsos positivos. Solo las entidades con coincidencia exacta en la base de datos se aprueban automáticamente.
 >
 > Las entidades duplicadas solo se preguntan **una vez** — la decisión se aplica a todas las ocurrencias en el documento.
 
-### Paso 5 — Asignación de pseudónimos
-Para cada entidad aceptada que no tiene pseudónimo en la base de datos, el sistema pide uno:
+### Paso 5 — Asignación de pseudónimos (Sugerencias Automáticas)
+Para cada entidad aceptada que no tiene pseudónimo en la base de datos, el sistema **sugerirá un pseudónimo automático** basado en su tipo para ahorrar tiempo de escritura (ej: Persona1, Org1, Lugar1).
 
-```
-  "Empresa XYZ SA" -> pseudonimo: #NOSOTROS#
-  Guardar "Empresa XYZ SA" -> "#NOSOTROS#" en la base de datos? Si / No [s/n] (s):
-```
+#### En el Flujo Interactivo (CLI):
+El sistema propone la sugerencia como default. Podés presionar `Enter` para aceptarla o escribir un pseudónimo propio.
 
-Si respondés `s`, la entidad y su pseudónimo quedan guardados permanentemente en la base de datos para uso futuro.
+#### En el Excel (Detect / GUI):
+Al generar el Excel de revisión, la columna **Pseudonimo** ya vendrá pre-llenada con estas sugerencias. **El usuario tiene el control final**: podés borrar el pseudónimo, cambiarlo por uno manual o cambiar la acción a `n` si decidís no anonimizar esa entidad.
+
+Si aceptás una sugerencia y respondés `s` a guardar en base de datos, la entidad y su pseudónimo quedan guardados permanentemente para uso futuro.
 
 ### Paso 6 — Generación del documento
 Se genera el documento anonimizado con todos los reemplazos aplicados:
@@ -100,13 +102,14 @@ Cada vez que se ejecuta `anonymize run`, se crean tres archivos junto al documen
 | `documento_anonimizado.pdf` / `.docx` | El documento con los datos reemplazados. |
 | `documento_anonimizado_mapeo.json` | El mapeo completo usado: `{"original": "pseudónimo"}`. Se puede reutilizar con `anonymize apply`. |
 | `documento_anonimizado_mapeo.xlsx` | El mismo mapeo en formato Excel, editable. |
+| `documento_anonimizado.docx.reversal.json` / `.pdf.reversal.json` | **Sidecar de reversión.** Contiene la lista ordenada de todas las sustituciones aplicadas. Necesario para ejecutar `anonymize deanonymize` y restaurar el documento original. Se genera automáticamente; no modificar manualmente. |
 
 ### Base de datos de entidades conocidas
 
-Archivo JSON persistente que guarda todas las entidades y pseudónimos que el usuario fue confirmando:
+Archivo Excel persistente que guarda todas las entidades y pseudónimos que el usuario fue confirmando. Es la **única fuente de verdad** del sistema — cualquier fila eliminada deja de ser reconocida:
 
 ```
-C:\Users\<usuario>\.doc-anonymizer\known_entities.json
+C:\Users\<usuario>\.doc-anonymizer\known_entities.xlsx
 ```
 
 ---
@@ -157,10 +160,12 @@ Permite exportar una grilla de decisión para ser revisada asincrónicamente por
 ```bash
 anonymize detect documento.docx --output revision.xlsx
 ```
-- **Formato del Excel:** Contiene 5 columnas (`Original`, `Tipo`, `Pseudonimo`, `Accion`, `Origen`).
+- **Formato del Excel:** Contiene 9 columnas en este orden: `Original`, `Contexto`, `Pseudonimo`, `Tipo`, `Accion`, `Guardar DB`, `Origen`, `Aliases`, `Modo`.
+  - **`Contexto`**: hasta 5 palabras antes y después de la entidad detectada, para facilitar la evaluación de cada caso.
+  - **`Pseudonimo`**: pre-llenado con sugerencias automáticas (ej: `Persona1`, `Org1`) para entidades nuevas. Modificable.
+  - **`Accion` por defecto**: las entidades con coincidencia exacta en la BD vienen pre-marcadas con `s`. Las entidades nuevas (NER, Regex) vienen con la columna **vacía** y requieren aprobación explícita del usuario.
 - **Codificación por colores:** Las filas en color verde son entidades ya conocidas en la Base de Datos.
 - **Instrucciones incorporadas:** El archivo incluye una solapa de ayuda con una guía de uso rápida.
-- **Acciones:** El usuario debe completar la columna `Accion` con `s` (Sí/Reemplazar), `n` (No/Ignorar) o `e` (Editar el pseudónimo).
 
 **Exportar a JSON:**
 ```bash
@@ -179,6 +184,29 @@ anonymize apply documento.docx revision.xlsx
 # Aplicar un mapeo simple JSON
 anonymize apply documento.pdf mapeo.json
 ```
+
+---
+
+### `anonymize deanonymize` — Revertir un documento anonimizado
+Restaura un documento previamente anonimizado a su versión original usando el sidecar `.reversal.json` que se genera automáticamente al anonimizar.
+
+```bash
+# Auto-detecta el sidecar (busca <input>.reversal.json en la misma carpeta)
+anonymize deanonymize documento_anonimizado.docx documento_restaurado.docx
+
+# Especificar el sidecar manualmente
+anonymize deanonymize documento_anonimizado.pdf documento_restaurado.pdf --reversal mi_sidecar.reversal.json
+```
+
+**Opciones:**
+
+| Opción | Descripción |
+|--------|-------------|
+| `--reversal` / `-r` | Ruta explícita al sidecar `.reversal.json`. Si se omite, se busca automáticamente como `<input>.reversal.json`. |
+
+> **Requisito**: el archivo sidecar `.reversal.json` debe existir junto al documento anonimizado. Sin él, la reversión **no es posible**. El sidecar se crea automáticamente cada vez que se ejecuta `anonymize run`.
+>
+> Formatos soportados: `.docx` y `.pdf`.
 
 ---
 

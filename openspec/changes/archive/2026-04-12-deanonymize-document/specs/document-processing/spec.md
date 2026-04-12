@@ -1,21 +1,4 @@
-# document-processing Specification
-
-## Purpose
-TBD - created by archiving change initial-spec. Update Purpose after archive.
-## Requirements
-### Requirement: Word extraction and generation
-System MUST read Word documents using `python-docx`, maintaining paragraph, cell, and run separation.
-
-#### Scenario: DOCX layout preservation
-- **WHEN** anonymizing a .docx file
-- **THEN** generated doc output retains original text styling, tables, and layouts
-
-### Requirement: PDF extraction and generation
-System MUST extract text leveraging `pdfplumber` and generate plain-text structural PDFs using `reportlab`.
-
-#### Scenario: PDF plain text output
-- **WHEN** anonymizing a .pdf file
-- **THEN** generated pdf has the content with pseudonyms applied but plain text formatting without original intricate layout
+## ADDED Requirements
 
 ### Requirement: Word anonymization writes reversal sidecar
 The system MUST write a `.reversal.json` sidecar file alongside the anonymized DOCX output, recording the exact substitutions applied, so that the operation is reversible without accessing the master database.
@@ -44,4 +27,3 @@ The system MUST restore a PDF document by reading its companion sidecar file and
 #### Scenario: PDF restored with original entity names
 - **WHEN** de-anonymizing a .pdf file using its sidecar
 - **THEN** the generated PDF contains original entity names in place of pseudonyms, with plain text formatting
-

@@ -98,9 +98,8 @@ def review_entities(entities: list[Entity]) -> list[Entity]:
     for i, entity in enumerate(unique):
         _print_entity_row(i + 1, total_unique, entity)
 
-        # NER detections default to "n" (likely false positive in legal docs)
-        # Regex/manual detections default to "s" (structured, reliable)
-        default = "n" if entity.source == "ner" else "s"
+        # New entities (NER, Regex, Manual) require explicit approval
+        default = "n"
         choice = Prompt.ask(
             "  [bold]Que hacer?[/bold] [green]S[/green]i / [red]N[/red]o / [yellow]E[/yellow]ditar",
             choices=["s", "n", "e", "S", "N", "E"],
