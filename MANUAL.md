@@ -243,7 +243,7 @@ El Excel tiene cinco columnas:
 | **Original** | El texto tal como aparece en los documentos. |
 | **Pseudonimo** | El texto de reemplazo. |
 | **Tipo** | `PERSONA`, `ORGANIZACION`, `LUGAR`, `EMAIL`, `TELEFONO`, `DNI/NIE`, `CUENTA BANCARIA`, `PERSONALIZADO` |
-| **Aliases** | Variantes del nombre original, separadas por coma (ej: `S. Clasen, Clasen`). |
+| **Aliases** | Variantes del nombre original, separadas por coma (ej: `A. García, García`). |
 | **Modo** | `palabra` (default) o `substring`. Controla cómo se busca el texto en el documento. Ver sección siguiente. |
 
 > Las filas con **Original** o **Pseudonimo** vacíos se ignoran al importar.
@@ -285,11 +285,11 @@ anonymize db add "Juan García" "Pedro Lopez" --mode palabra  # nombre con borde
 Permite que distintas grafías de un mismo nombre se mapeen al mismo pseudónimo.
 
 ```bash
-# "Ordoñez" y "Ordóñez" -> mismo pseudónimo
-anonymize db alias "Juan Pablo Ordoñez" "Juan Pablo Ordóñez"
+# "Ana Lopez" y "Ana López" -> mismo pseudónimo
+anonymize db alias "Ana Lopez" "Ana López"
 
 # Abreviatura
-anonymize db alias "Sebastian Clasen" "S. Clasen"
+anonymize db alias "Ana García" "A. García"
 ```
 
 #### Eliminar una entidad

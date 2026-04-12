@@ -409,7 +409,7 @@ def db_add(
     entity_type: str = typer.Option("PERSONA", "--type", "-t",
                                      help="Tipo: PERSONA, ORGANIZACION, LUGAR, etc."),
     aliases: Optional[str] = typer.Option(None, "--aliases", "-a",
-                                           help="Alias separados por coma (ej: 'S. Clasen,Clasen')"),
+                                           help="Alias separados por coma (ej: 'A. García,García')"),
     match_mode: str = typer.Option("palabra", "--mode", "-M",
                                     help="Modo de busqueda: 'palabra' (bordes de palabra) o 'substring' (dentro de cualquier texto)"),
 ):

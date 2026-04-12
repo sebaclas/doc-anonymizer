@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('mini_manual.html', '.')]
+datas = [('mini_manual.html', '.'), ('logo.png', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('spacy')
@@ -46,4 +46,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=['logo.ico'],
 )

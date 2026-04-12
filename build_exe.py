@@ -20,9 +20,11 @@ def build():
         '--windowed',                     # No abrir consola al ejecutar
         '--noconfirm',                    # No pedir confirmación
         '--clean',                        # Limpiar cache
+        '--icon=logo.ico',                # Icono del ejecutable
         
         # Incluir archivos adicionales
-        '--add-data=mini_manual.html;.',  # Incluimos el manual en la raiz del exe
+        '--add-data=mini_manual.html;.',  # Incluimos el manual
+        '--add-data=logo.png;.',          # Incluimos el logo
         
         # Importante para librerías de IA y Spacy
         '--collect-all=spacy',

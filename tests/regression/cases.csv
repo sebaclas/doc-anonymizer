@@ -1,6 +1,6 @@
 id,text,expected,type
 stopword_001,"El contrato se firmó ayer en Buenos Aires",contrato,ORG
-shadow_001,"Ignacio Grossi asistió a la reunión",Ignacio,PERSON
+shadow_001,"Pedro Ramírez asistió a la reunión",Pedro,PERSON
 success_001,"Juan Perez vive en Madrid",Juan Perez,PERSON
 success_002,"Contactar a soporte@empresa.com para ayuda",soporte@empresa.com,EMAIL
 success_003,"El documento es D.N.I. 12.613.077",D.N.I. 12.613.077,DNI

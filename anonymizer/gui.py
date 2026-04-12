@@ -2,6 +2,8 @@ import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import sys
+from PIL import Image
 import customtkinter as ctk
 from pathlib import Path
 
@@ -11,6 +13,15 @@ from anonymizer.matcher import EntityMatcher
 from anonymizer import mapping as mapping_mod
 from anonymizer.utils import extract_document, anonymize_document
 from anonymizer.config import current_settings, SETTINGS_PATH
+
+def get_resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # Configuración de apariencia
 ctk.set_appearance_mode("Dark")
@@ -34,6 +45,20 @@ class AnonymizerGUI(ctk.CTk):
         # Header Frame para contener Titulo + Ayuda
         self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.header_frame.pack(pady=(20, 10), fill="x", padx=20)
+
+        # Cargar Logo
+        logo_path = get_resource_path("logo.png")
+        if os.path.exists(logo_path):
+            try:
+                self.logo_image = ctk.CTkImage(
+                    light_image=Image.open(logo_path),
+                    dark_image=Image.open(logo_path),
+                    size=(40, 40)
+                )
+                self.logo_label = ctk.CTkLabel(self.header_frame, image=self.logo_image, text="")
+                self.logo_label.pack(side="left", padx=(0, 10))
+            except Exception as e:
+                print(f"Error loading logo: {e}")
 
         self.header = ctk.CTkLabel(self.header_frame, text="ANONYMIZER PRO", font=ctk.CTkFont(size=24, weight="bold"))
         self.header.pack(side="left")
