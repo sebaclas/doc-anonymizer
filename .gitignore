@@ -63,6 +63,7 @@ sample_docs/
 !/requirements.txt
 !/build_exe.py
 !/CHANGELOG.md
+!/architecture.drawio
 
 # Allow directories (the /* above ignored them)
 !/.agent/
