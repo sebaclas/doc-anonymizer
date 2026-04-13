@@ -65,6 +65,3 @@ sandbox/*
 !/scripts/
 !/tests/
 !/openspec/
-!/sample_docs/
-!/sandbox/
-!/.agent/
