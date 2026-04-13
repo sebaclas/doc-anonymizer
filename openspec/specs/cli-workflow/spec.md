@@ -4,7 +4,7 @@
 TBD - created by archiving change initial-spec. Update Purpose after archive.
 ## Requirements
 ### Requirement: CLI commands and options
-The CLI MUST expose `run`, `detect`, `apply` and `db` commands using Typer framework.
+The CLI MUST expose `run`, `detect`, `apply` and `db` commands using Typer framework. All commands involving file outputs SHALL respect the new project structure and avoid polluting the root directory.
 
 #### Scenario: Running anonymization with full execution
 - **WHEN** user executes `anonymize run <file>`

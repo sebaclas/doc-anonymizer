@@ -1,4 +1,4 @@
-# <p align="center"><img src="logo.png" width="128" alt="Logo"><br>Anonimizador de Documentos 🕵️‍♂️</p>
+# <p align="center"><img src="docs/assets/logo.png" width="128" alt="Logo"><br>Anonimizador de Documentos 🕵️‍♂️</p>
 
 ###  "Para que la IA te ayude, pero no se entere de todo."
 
@@ -32,7 +32,7 @@ El flujo de trabajo con la UI es así:
 ## 🏗️ La Arquitectura
 Para que no sea un spaghetti code, la cosa está organizada así:
 
-![Architecture](architecture.drawio.png)
+![Architecture](docs/assets/architecture.drawio.png)
 
 *   **Detección:** Mezcla de NLP (Spacy) con RegEx para las cosas que la IA no pesca.
 *     podes agregar tus propias Regex, busca el botón. Preguntale a tu chat amigo como escribir esa Regex que necesitas

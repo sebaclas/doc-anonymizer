@@ -2,8 +2,8 @@
 Applies the pseudonym mapping to DOCX and PDF documents,
 generating new anonymized files.
 
-Also provides de-anonymization via a sidecar reversal file written
-alongside every anonymized output.
+De-anonymization (restoration) is performed using the Excel mapping file
+generated during the anonymization session.
 """
 import json
 import logging
@@ -12,8 +12,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# ── Sidecar schema version ───────────────────────────────────────────────────
-_SIDECAR_SCHEMA_VERSION = 1
+logger = logging.getLogger(__name__)
 
 
 def _apply_mapping_to_text(
@@ -54,77 +53,6 @@ def _apply_mapping_to_text(
     return pattern.sub(lambda m: mapping.get(m.group(0), mapping.get(m.group(0).lower(), mapping.get(m.group(0).title(), next(iter(mapping.values()))))), text)
 
 
-# ── Sidecar helpers ─────────────────────────────────────────────────────────
-
-def _write_reversal_sidecar(
-    output_path: Path,
-    source_document: str,
-    mapping: dict[str, str],
-    modes: dict[str, str] | None = None,
-) -> None:
-    """
-    Write a <output_path>.reversal.json sidecar file capturing the
-    exact (original, pseudonym, match_mode) pairs applied during anonymization.
-
-    Entries are deduplicated by (original, pseudonym) pair. The file is used
-    later by load_reversal_sidecar() to reconstruct the document without DB access.
-    """
-    seen: set[tuple[str, str]] = set()
-    replacements: list[dict] = []
-    for original, pseudonym in mapping.items():
-        key = (original, pseudonym)
-        if key in seen:
-            continue
-        seen.add(key)
-        match_mode = modes.get(original, "palabra") if modes is not None else "substring"
-        replacements.append({
-            "original": original,
-            "pseudonym": pseudonym,
-            "match_mode": match_mode,
-        })
-
-    sidecar = {
-        "schema_version": _SIDECAR_SCHEMA_VERSION,
-        "source_document": source_document,
-        "replacements": replacements,
-    }
-
-    sidecar_path = Path(str(output_path) + ".reversal.json")
-    sidecar_path.write_text(json.dumps(sidecar, ensure_ascii=False, indent=2), encoding="utf-8")
-    logger.debug("Reversal sidecar written: %s", sidecar_path)
-
-
-def load_reversal_sidecar(path: str | Path) -> dict[str, str]:
-    """
-    Read a .reversal.json sidecar and return {pseudonym: original}.
-
-    Raises FileNotFoundError with a descriptive message if the sidecar does not
-    exist. Logs a WARNING when multiple entries share the same pseudonym
-    (collision); in that case the last entry in list order wins.
-    """
-    sidecar_path = Path(path)
-    if not sidecar_path.exists():
-        raise FileNotFoundError(
-            f"Reversal sidecar not found: {sidecar_path}. "
-            "Only documents anonymized with this tool can be de-anonymized."
-        )
-
-    data = json.loads(sidecar_path.read_text(encoding="utf-8"))
-    reverse: dict[str, str] = {}
-    for entry in data.get("replacements", []):
-        pseudo = entry["pseudonym"]
-        original = entry["original"]
-        if pseudo in reverse and reverse[pseudo] != original:
-            logger.warning(
-                "Pseudonym collision in sidecar '%s': '%s' maps to both '%s' and '%s'. "
-                "Using last entry: '%s'.",
-                sidecar_path, pseudo, reverse[pseudo], original, original,
-            )
-        reverse[pseudo] = original
-
-    return reverse
-
-
 # ── DOCX ─────────────────────────────────────────────────────────────────────
 
 def anonymize_docx(
@@ -132,7 +60,6 @@ def anonymize_docx(
     output_path: str | Path,
     mapping: dict[str, str],
     modes: dict[str, str] | None = None,
-    write_reversal: bool = True,
 ):
     from docx import Document as DocxDocument
 
@@ -154,31 +81,28 @@ def anonymize_docx(
 
     doc.save(str(output_path))
 
-    # 3. Write reversal sidecar alongside the output
-    if write_reversal:
-        _write_reversal_sidecar(output_path, input_path.name, mapping, modes)
-
 
 def deanonymize_docx(
     input_path: str | Path,
     output_path: str | Path,
-    reversal_path: str | Path,
+    mapping_path: str | Path,
 ):
     """
-    Restore an anonymized DOCX to its original text using the sidecar reversal file.
+    Restore an anonymized DOCX to its original text using an Excel mapping file.
 
-    The reverse mapping (pseudonym → original) is read exclusively from the
-    sidecar — no database access is performed. All entries use substring match
-    mode because pseudonym tokens (e.g. [PERSONA_1]) are unique strings that
+    The reverse mapping (pseudonym → original) is read from the Excel file
+    provided by the user. All entries use substring match mode because 
+    pseudonym tokens (e.g. [PERSONA_1]) are unique strings that
     will not cause false partial matches.
     """
     from docx import Document as DocxDocument
+    from anonymizer import mapping as map_module
 
     input_path = Path(input_path)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    reverse_mapping = load_reversal_sidecar(reversal_path)
+    reverse_mapping = map_module.load_reverse_mapping(mapping_path)
     # All pseudonyms use substring mode — word-boundary fails on bracket tokens
     reverse_modes = {k: "substring" for k in reverse_mapping}
 
@@ -250,7 +174,6 @@ def anonymize_pdf(
     output_path: str | Path,
     mapping: dict[str, str],
     modes: dict[str, str] | None = None,
-    write_reversal: bool = True,
 ):
     """
     Extracts text from input PDF, applies mapping, and generates a new PDF
@@ -309,24 +232,20 @@ def anonymize_pdf(
 
     doc.build(story)
 
-    # Write reversal sidecar alongside the output
-    if write_reversal:
-        _write_reversal_sidecar(output_path, input_path.name, mapping, modes)
-
 
 def deanonymize_pdf(
     input_path: str | Path,
     output_path: str | Path,
-    reversal_path: str | Path,
+    mapping_path: str | Path,
 ):
     """
-    Restore an anonymized PDF to its original text using the sidecar reversal file.
+    Restore an anonymized PDF to its original text using an Excel mapping file.
 
-    The reverse mapping (pseudonym → original) is read exclusively from the
-    sidecar — no database access is performed. Output is a plain-structural PDF
-    (same limitation as anonymize_pdf).
+    The reverse mapping (pseudonym → original) is read from the Excel file. 
+    Output is a plain-structural PDF (same limitation as anonymize_pdf).
     """
     import pdfplumber
+    from anonymizer import mapping as map_module
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -336,7 +255,7 @@ def deanonymize_pdf(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    reverse_mapping = load_reversal_sidecar(reversal_path)
+    reverse_mapping = map_module.load_reverse_mapping(mapping_path)
     # All pseudonyms use substring mode (see deanonymize_docx rationale)
     reverse_modes = {k: "substring" for k in reverse_mapping}
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "doc-anonymizer"
-version = "0.3.0"
+version = "1.0.0"
 description = "Anonymize text documents (DOCX, PDF) with pseudonymization"
 requires-python = ">=3.10"
 dependencies = [

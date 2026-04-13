@@ -326,16 +326,22 @@ def apply(
 def deanonymize(
     document: Path = typer.Argument(..., help="Ruta al documento anonimizado (.docx o .pdf)"),
     output: Path = typer.Argument(..., help="Ruta del documento restaurado de salida"),
-    reversal: Optional[Path] = typer.Option(
-        None, "--reversal", "-r",
-        help="Ruta al sidecar de reversión (.reversal.json). Si se omite, se busca <documento>.reversal.json"
+    mapping: Path = typer.Option(
+        ..., "--mapping", "-m",
+        help="Ruta al archivo Excel de mapeo (.xlsx) generado durante la anonimización."
     ),
 ):
-    """Revierte la anonimización usando el archivo sidecar de reversión."""
+    """
+    Restaura un documento anonimizado a su estado original usando un archivo Excel de mapeo.
+    """
     from anonymizer import replacer
 
     if not document.exists():
         console.print(f"[red]Archivo no encontrado: {document}[/red]")
+        raise typer.Exit(1)
+
+    if not mapping.exists():
+        console.print(f"[red]Archivo de mapeo no encontrado: {mapping}[/red]")
         raise typer.Exit(1)
 
     suffix = document.suffix.lower()
@@ -343,23 +349,13 @@ def deanonymize(
         console.print(f"[red]Formato no soportado: '{suffix}'. Usa .docx o .pdf[/red]")
         raise typer.Exit(1)
 
-    # Auto-detect sidecar if not provided
-    reversal_path = reversal if reversal else Path(str(document) + ".reversal.json")
-    if not reversal_path.exists():
-        console.print(
-            f"[red]Archivo de reversión no encontrado: {reversal_path}[/red]\n"
-            "[dim]Solo se pueden revertir documentos anonimizados con esta herramienta.\n"
-            "Si el sidecar fue movido, usa --reversal <ruta>.[/dim]"
-        )
-        raise typer.Exit(1)
-
-    with console.status("Revirtiendo anonimización..."):
+    with console.status("Restaurando documento..."):
         if suffix == ".docx":
-            replacer.deanonymize_docx(document, output, reversal_path)
+            replacer.deanonymize_docx(document, output, mapping)
         else:
-            replacer.deanonymize_pdf(document, output, reversal_path)
+            replacer.deanonymize_pdf(document, output, mapping)
 
-    console.print(f"[bold green]Listo:[/bold green] {output}")
+    console.print(f"[bold green]Documento restaurado exitosamente:[/bold green] {output}")
 
 
 @app.command()

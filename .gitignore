@@ -40,44 +40,31 @@ __pycache__
 # Local mapping files, DB, PDFs
 *.pdf
 *.docx
-test_det.xlsx
-test_final_money.xlsx
-status.json
-status2.json
-status_archive.json
-Notas_y_planificación.md
+mapping_test.xlsx
 
 # Folders to ignore
-.agent/
-# openspec/changes/
-sample_docs/
+.agent/*
+!/.agent/rules/
+!/.agent/workflows/
+!/.agent/skills/
+.scratch/*
+sample_docs/*
+sandbox/*
 
 # Root files: Ignore all by default and only allow specific ones
 /*
 !/.gitignore
-!/STACK.md
-!/MANUAL.md
-!/mini_manual.md
-!/mini_manual.html
 !/pyproject.toml
 !/requirements.txt
-!/build_exe.py
-!/CHANGELOG.md
 !/README.md
-!/logo.png
-!/logo.ico
-!/architecture.drawio.png
+!/CHANGELOG.md
 
-# Allow directories (the /* above ignored them)
-!/.agent/
+# Allow specific core directories
 !/anonymizer/
-!/openspec/
+!/docs/
+!/scripts/
 !/tests/
-!/mappings/
+!/openspec/
 !/sample_docs/
-
-# Re-apply ignores for sub-folders of allowed directories
-.agent/*
-openspec/changes/*
-!openspec/changes/archive/
-sample_docs/*
+!/sandbox/
+!/.agent/

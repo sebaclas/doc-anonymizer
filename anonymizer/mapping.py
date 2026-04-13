@@ -310,3 +310,27 @@ def load_excel(path: str | Path) -> dict[str, str]:
 def validate(mapping: dict[str, str]) -> list[str]:
     """Return list of keys with empty pseudonyms."""
     return [k for k, v in mapping.items() if not v.strip()]
+
+
+def load_reverse_mapping(path: str | Path) -> dict[str, str]:
+    """
+    Read an Excel mapping file and return {pseudonym: original}.
+    
+    This is used for de-anonymization (restoration). It leverages load_excel
+    to handle all supported formats and then inverts the mapping.
+    
+    In case of collisions (multiple originals mapping to the same pseudonym),
+    the last entry found in the Excel file wins, ensuring consistency with
+    previous sidecar behavior.
+    """
+    # Use existing robust loader to get {original: pseudonym}
+    mapping = load_excel(path)
+    
+    # Invert: {pseudo: original}
+    reverse: dict[str, str] = {}
+    for original, pseudo in mapping.items():
+        p = str(pseudo).strip()
+        if p:
+            reverse[p] = original
+            
+    return reverse

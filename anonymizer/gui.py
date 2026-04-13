@@ -20,8 +20,18 @@ def get_resource_path(relative_path):
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+        # En desarrollo, el raíz es el padre del paquete 'anonymizer'
+        base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    
+    # Intentar encontrarlo en la nueva estructura (docs/assets) si falla la ruta directa
+    full_path = os.path.join(base_path, relative_path)
+    if not os.path.exists(full_path):
+        # Fallback para assets movidos a docs/assets
+        asset_fallback = os.path.join(base_path, "docs", "assets", relative_path)
+        if os.path.exists(asset_fallback):
+            return asset_fallback
+            
+    return full_path
 
 # Configuración de apariencia
 ctk.set_appearance_mode("Dark")
@@ -359,30 +369,26 @@ class AnonymizerGUI(ctk.CTk):
             messagebox.showerror("Error", f"No se pudo abrir el editor de regex: {str(e)}")
 
     def _run_deanonymize(self):
-        """Abre el picker de archivo anonimizado y lanza la reversión en background."""
+        """Abre los pickers de archivo anonimizado y mapeo Excel, y lanza la reversión."""
         filename = filedialog.askopenfilename(
-            title="Seleccionar documento anonimizado",
+            title="Paso 1: Seleccionar documento anonimizado",
             filetypes=[("Documentos Soportados", "*.docx *.pdf"), ("Word", "*.docx"), ("PDF", "*.pdf")],
         )
         if not filename:
             return
-
         anon_path = Path(filename)
-        reversal_path = Path(str(anon_path) + ".reversal.json")
 
-        if not reversal_path.exists():
-            messagebox.showerror(
-                "Archivo de reversión no encontrado",
-                f"Este archivo no tiene un archivo de reversión asociado ('{reversal_path.name}').\n\n"
-                "Solo se pueden revertir documentos anonimizados con esta herramienta.\n"
-                "Si el sidecar fue movido, usa el comando CLI:\n"
-                f"  anonymize deanonymize {anon_path.name} <salida> --reversal <ruta>"
-            )
+        xlsx_name = filedialog.askopenfilename(
+            title="Paso 2: Seleccionar archivo Excel de mapeo",
+            filetypes=[("Excel", "*.xlsx")],
+        )
+        if not xlsx_name:
             return
+        mapping_path = Path(xlsx_name)
 
         # Ask for output path
         out_filename = filedialog.asksaveasfilename(
-            title="Guardar documento restaurado",
+            title="Paso 3: Guardar documento restaurado",
             defaultextension=anon_path.suffix,
             initialfile=f"{anon_path.stem}_original{anon_path.suffix}",
             filetypes=[("Word", "*.docx"), ("PDF", "*.pdf")],
@@ -392,21 +398,21 @@ class AnonymizerGUI(ctk.CTk):
 
         output_path = Path(out_filename)
         self.btn_revert.configure(state="disabled", text="Revirtiendo...")
-        self.status_bar.configure(text=f"Revirtiendo {anon_path.name}...")
+        self.status_bar.configure(text=f"Restaurando {anon_path.name}...")
 
         threading.Thread(
             target=self._deanonymize_thread,
-            args=(anon_path, output_path, reversal_path),
+            args=(anon_path, output_path, mapping_path),
             daemon=True,
         ).start()
 
-    def _deanonymize_thread(self, anon_path: Path, output_path: Path, reversal_path: Path):
+    def _deanonymize_thread(self, anon_path: Path, output_path: Path, mapping_path: Path):
         try:
             from anonymizer import replacer
             if anon_path.suffix.lower() == ".docx":
-                replacer.deanonymize_docx(anon_path, output_path, reversal_path)
+                replacer.deanonymize_docx(anon_path, output_path, mapping_path)
             else:
-                replacer.deanonymize_pdf(anon_path, output_path, reversal_path)
+                replacer.deanonymize_pdf(anon_path, output_path, mapping_path)
 
             self.after(0, lambda: self._deanonymize_success(output_path))
         except Exception as e:
@@ -435,16 +441,18 @@ class AnonymizerGUI(ctk.CTk):
             messagebox.showerror("Error", "No se encontró el archivo de ajustes.")
 
     def _show_help(self):
-        # 1. Buscar en todas las ubicaciones posibles (ahora en HTML)
+        # 1. Buscar en todas las ubicaciones posibles (priorizando docs/)
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         paths_to_check = [
-            Path(__file__).resolve().parent.parent / "mini_manual.html",
-            Path(__file__).resolve().parent / "mini_manual.html",
-            Path.cwd() / "mini_manual.html"
+            get_resource_path("docs/mini_manual.html"),
+            get_resource_path("mini_manual.html"),
+            Path(base_dir) / "docs" / "mini_manual.html",
+            Path(base_dir) / "mini_manual.html"
         ]
         
         found_file = None
         for p in paths_to_check:
-            if p.exists():
+            if p and Path(p).exists():
                 found_file = p
                 break
         
