@@ -6,7 +6,7 @@ from anonymizer.models import Entity, EntityType
 # New consolidated pattern list (Single List model)
 DEFAULT_PATTERNS = [
     {"id": "builtin_dni", "name": "DNI/NIE", "type": EntityType.ID_NUMBER.value, "pattern": r"\b[0-9]{8}[A-Z]\b|\b[XYZ][0-9]{7}[A-Z]\b", "enabled": True, "builtin": True},
-    {"id": "builtin_cuit", "name": "CUIT/CUIL", "type": EntityType.ID_NUMBER.value, "pattern": r"\b\d{2}-\d{8}-\d\b", "enabled": True, "builtin": True},
+    {"id": "builtin_cuit", "name": "CUIT/CUIL", "type": EntityType.ID_NUMBER.value, "pattern": r"(?i)\bC\.?U\.?I\.?[LT]\.?\s*[:=]?\s*[\d\.\s-]{7,17}\d\b", "enabled": True, "builtin": True},
     {"id": "builtin_email", "name": "EMAIL", "type": EntityType.EMAIL.value, "pattern": r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}\b", "enabled": True, "builtin": True},
     {"id": "builtin_phone_ar", "name": "PHONE_AR", "type": EntityType.PHONE.value, "pattern": r"\b(?:15[-\s]?\d{4}[-\s]?\d{4}|\d{4}[-\s]\d{4}|\d{2}-\d{4}-\d{4}|11[-\s]\d{4}[-\s]?\d{4})\b", "enabled": True, "builtin": True},
     {"id": "builtin_phone_es", "name": "PHONE_ES", "type": EntityType.PHONE.value, "pattern": r"\b(?:\+34\s?)?[6789]\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3}\b", "enabled": True, "builtin": True},

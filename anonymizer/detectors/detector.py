@@ -1,6 +1,6 @@
 import re
 from anonymizer.models import Entity, Document, EntityType
-from anonymizer.detectors import ner, patterns as pat_module
+from anonymizer.detectors import ner, patterns as pat_module, amounts
 
 
 
@@ -60,7 +60,13 @@ def detect_all(
     for ent in regex_entities:
         ent.context = _get_context(doc.full_text, ent.start, ent.end)
 
-    all_entities = known_entities_found + ner_entities + regex_entities
+    amount_entities = amounts.detect(doc.full_text)
+    for ent in amount_entities:
+        # Pre-set context if not present, though detector might have added value
+        if not ent.context:
+            ent.context = _get_context(doc.full_text, ent.start, ent.end)
+
+    all_entities = known_entities_found + ner_entities + regex_entities + amount_entities
     return _deduplicate(all_entities)
 
 
@@ -114,8 +120,8 @@ def _detect_known(text: str, known_entities: list) -> list[Entity]:
 
 
 def _deduplicate(entities: list[Entity]) -> list[Entity]:
-    # Sort by start position, then by source priority (known > regex > ner), then length
-    priority = {"known": 0, "regex": 1, "ner": 2}
+    # Sort by start position, then by source priority (known > regex > ner > text2num), then length
+    priority = {"known": 0, "regex": 1, "ner": 2, "text2num": 3}
     sorted_ents = sorted(entities, key=lambda e: (
         e.start, 
         priority.get(e.source, 3), 

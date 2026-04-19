@@ -12,6 +12,7 @@ class EntityType(str, Enum):
     ID_NUMBER = "DNI/NIE"
     BANK = "CUENTA BANCARIA"
     MONEY = "MONTO"
+    AMOUNT = "CANTIDAD"
     CUSTOM = "PERSONALIZADO"
 
 
@@ -21,7 +22,7 @@ class Entity:
     entity_type: EntityType
     start: int
     end: int
-    source: str  # "ner" | "regex" | "manual"
+    source: str  # "ner" | "regex" | "text2num" | "manual"
     context: str = ""
 
     def __hash__(self):

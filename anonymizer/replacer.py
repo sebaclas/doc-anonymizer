@@ -62,6 +62,7 @@ def anonymize_docx(
     modes: dict[str, str] | None = None,
 ):
     from docx import Document as DocxDocument
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
     input_path = Path(input_path)
     output_path = Path(output_path)
@@ -69,15 +70,38 @@ def anonymize_docx(
 
     doc = DocxDocument(input_path)
 
-    # 1. Reemplazo profundo via XPath (Cubre cuerpo, cuadros de texto, dibujos, etc.)
+    # 0. Purge core properties (Metadata)
+    cp = doc.core_properties
+    cp.author = "Anónimo"
+    cp.last_modified_by = "Anónimo"
+    cp.comments = ""
+    cp.title = ""
+    cp.subject = ""
+
+    # 1. Pre-procesamiento: Control de Cambios e Hipervínculos
+    _accept_all_changes(doc._element)
+    _flatten_hyperlinks(doc._element)
+
+    # 2. Reemplazo profundo via XPath (Cubre cuerpo, cuadros de texto, dibujos, etc.)
     _deep_replace_xml(doc._element, mapping, modes)
 
-    # 2. Reemplazo profundo en todos los headers/footers
+    # 3. Procesar Headers, Footers y otras secciones
     for section in doc.sections:
         for hf in [section.header, section.footer, section.first_page_header,
                    section.first_page_footer, section.even_page_header, section.even_page_footer]:
             if hf:
+                _accept_all_changes(hf._element)
+                _flatten_hyperlinks(hf._element)
                 _deep_replace_xml(hf._element, mapping, modes)
+
+    # 4. Procesar xmls auxiliares (Comments, Footnotes, Endnotes)
+    for rel in doc.part.rels.values():
+        if rel.reltype in (RT.COMMENTS, RT.FOOTNOTES, RT.ENDNOTES):
+            part = rel.target_part
+            if hasattr(part, "element"):
+                _accept_all_changes(part.element)
+                _flatten_hyperlinks(part.element)
+                _deep_replace_xml(part.element, mapping, modes)
 
     doc.save(str(output_path))
 
@@ -96,6 +120,7 @@ def deanonymize_docx(
     will not cause false partial matches.
     """
     from docx import Document as DocxDocument
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
     from anonymizer import mapping as map_module
 
     input_path = Path(input_path)
@@ -114,6 +139,12 @@ def deanonymize_docx(
                    section.first_page_footer, section.even_page_header, section.even_page_footer]:
             if hf:
                 _deep_replace_xml(hf._element, reverse_mapping, reverse_modes)
+
+    for rel in doc.part.rels.values():
+        if rel.reltype in (RT.COMMENTS, RT.FOOTNOTES, RT.ENDNOTES):
+            part = rel.target_part
+            if hasattr(part, "element"):
+                _deep_replace_xml(part.element, reverse_mapping, reverse_modes)
 
     doc.save(str(output_path))
 
@@ -165,6 +196,51 @@ def _set_paragraph_text_safely(para, new_text):
 def _replace_in_paragraph(para, mapping: dict[str, str], modes: dict[str, str] | None = None):
     # Ya no se usa para el flujo DOCX principal porque _deep_replace_xml es más exhaustivo
     pass
+
+
+def _accept_all_changes(element):
+    """
+    Acepta todos los cambios simulando la función de Word:
+    1. Elimina completamente los nodos <w:del>.
+    2. Consolida nodos <w:ins> removiendo su etiqueta <w:ins> pero conservando los hijos.
+    """
+    # 1. Borrar texto eliminado
+    dels = element.xpath('.//w:del')
+    for d in dels:
+        parent = d.getparent()
+        if parent is not None:
+            parent.remove(d)
+            
+    # 2. Aceptar inserciones (mantener contenido, quitar w:ins)
+    ins_nodes = element.xpath('.//w:ins')
+    for i_node in ins_nodes:
+        parent = i_node.getparent()
+        if parent is None:
+            continue
+        idx = parent.index(i_node)
+        for child in list(i_node):
+            i_node.remove(child)
+            parent.insert(idx, child)
+            idx += 1
+        parent.remove(i_node)
+
+
+def _flatten_hyperlinks(element):
+    """
+    Busca etiquetas <w:hyperlink> y las destruye, moviendo sus hijos (generalmente <w:r>)
+    al nodo padre justo donde estaba el hipervínculo, convirtiéndolos en texto normal.
+    """
+    hyperlinks = element.xpath('.//w:hyperlink')
+    for hl in hyperlinks:
+        parent = hl.getparent()
+        if parent is None:
+            continue
+        idx = parent.index(hl)
+        for child in list(hl):
+            hl.remove(child)
+            parent.insert(idx, child)
+            idx += 1
+        parent.remove(hl)
 
 
 # ── PDF ───────────────────────────────────────────────────────────────────────

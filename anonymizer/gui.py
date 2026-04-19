@@ -50,6 +50,18 @@ class AnonymizerGUI(ctk.CTk):
         self.matcher = EntityMatcher()
 
         self._setup_ui()
+        
+        # Cargar archivo si se pasa como argumento (Drag & Drop / "Abrir con...")
+        if len(sys.argv) > 1:
+            self._handle_command_line_args(sys.argv[1])
+
+    def _handle_command_line_args(self, file_path):
+        potential_path = Path(file_path)
+        if potential_path.exists() and potential_path.suffix.lower() in [".docx", ".pdf"]:
+            self.doc_path = potential_path
+            # Actualizar la interfaz (el método _select_doc hace algo similar, pero aquí ya tenemos el path)
+            self.lbl_doc_path.configure(text=self.doc_path.name, text_color="white")
+            self._check_ready()
 
     def _setup_ui(self):
         # Header Frame para contener Titulo + Ayuda

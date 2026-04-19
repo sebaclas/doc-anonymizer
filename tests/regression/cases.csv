@@ -5,3 +5,17 @@ success_001,"Juan Perez vive en Madrid",Juan Perez,PERSON
 success_002,"Contactar a soporte@empresa.com para ayuda",soporte@empresa.com,EMAIL
 success_003,"El documento es D.N.I. 12.613.077",D.N.I. 12.613.077,DNI
 success_004,"la patente numero 2020/0005950 está buenísima",2020/0005950, personalizado
+success_005,"El monto es de un mil doscientos pesos",mil doscientos,AMOUNT
+success_006,"two billion United States Dollars",two billion,AMOUNT
+success_007,"Costará ciento veinticinco dólares",ciento veinticinco,AMOUNT
+success_008,"A total of forty five thousand pounds",forty five thousand,AMOUNT
+success_009,"Recibió tres millones de euros",tres millones,AMOUNT
+success_010,"The fee is one hundred and twelve euros",one hundred and twelve,AMOUNT
+success_011,"Un pago de cuatrocientos cincuenta pesos",cuatrocientos cincuenta,AMOUNT
+success_012,"It will cost sixty six dollars",sixty six,AMOUNT
+success_013,"Cincuenta mil guaraníes retirados",Cincuenta mil,AMOUNT
+success_014,"three hundred fifty participants joined",three hundred fifty,AMOUNT
+success_015,"Cuit 30.23.345.232.8",Cuit 30.23.345.232.8,CUIT
+success_016,"CUIT 30 388949948",CUIT 30 388949948,CUIT
+success_017,"CUIT 4-45-654-456-7",CUIT 4-45-654-456-7,CUIT
+success_018,"El monto es de un mil doscientos pesos",mil doscientos,AMOUNT

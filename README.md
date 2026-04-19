@@ -26,6 +26,7 @@ El flujo de trabajo con la UI es así:
 3.  **Ajustás el Excel:** Se te abre un Excel al lado de tu archivo. Ahí revisás qué detectó, le cambiás el pseudónimo si querés (ej: `Persona1` -> `El_Capo`) y marcás cuál querés reemplazar. 
     *   *Tip:* Podés marcar la 's' en "Guardar DB" para que el programa se acuerde de ese nombre para siempre.
 4.  **Generar:** Cerrás el Excel, volvés a la app y le das al botón verde. ¡Listo! Tenés tu archivo anonimizado y el archivo de reversión.
+5. **Revertir:** Si querés volver a tener el archivo con sus nombres originales (aunque lo hayas modificado), seleccionás el archivo anonimizado y le das al botón azul. ¡Listo! Tenés tu archivo original.
 
 ---
 
@@ -35,8 +36,8 @@ Para que no sea un spaghetti code, la cosa está organizada así:
 ![Architecture](docs/assets/architecture.drawio.png)
 
 *   **Detección:** Mezcla de NLP (Spacy) con RegEx para las cosas que la IA no pesca.
-*     podes agregar tus propias Regex, busca el botón. Preguntale a tu chat amigo como escribir esa Regex que necesitas
-*   **Memoria:** Un Excel al que tenes acceso, te podes hacer una auto-lobotomia si lo borrás.
+*     podes agregar tus propias Regex, busca el botón. Preguntale a tu Chat amigo como escribir esa Regex que necesitas
+*   **Memoria:** Un Excel al que tenes acceso, te podes hacer una auto-lobotomia si lo borrás. Ojo para la reversión tenes que tener el excel original.
 *   **Reemplazo:** Un motor que respeta el formato del documento original solo en word por ahora.
 
 ---
@@ -48,6 +49,9 @@ Si tenés Python en tu máquina:
 2.  Instalá las dependencias: `pip install -r requirements.txt`
 3.  Bajás el modelo de lenguaje: `python -m spacy download es_core_news_lg`
 4.  Ejecutás el comando: `python -m anonymizer.gui.main`
+
+## 🛠️ Cómo lo corro (si sos usuario)
+deacargate el ejecutable de la carpeta dist. No instala nada, solo lo descomprimis y lo ejecutás.
 
 ---
 

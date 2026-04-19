@@ -8,3 +8,4 @@ rich>=13.7
 pdfplumber>=0.11
 reportlab>=4.2
 rapidfuzz>=3.0
+text2num>=3.0

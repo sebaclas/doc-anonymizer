@@ -51,19 +51,28 @@ def _extract_all_xml_text(doc_obj):
     from docx.oxml.ns import qn
     
     all_text_parts = []
-    # Buscamos todos los nodos 'w:t' (texto) en todo el cuerpo del documento
-    for t_node in doc_obj.element.xpath('.//w:t'):
-        if t_node.text and t_node.text.strip():
-            all_text_parts.append(t_node.text.strip())
+    # Usamos xpath para encontrar todos los w:p y concatenar su texto interno completo
+    # Esto une w:hyperlink y w:r fragmentados dentro del mismo párrafo
+    for p_node in doc_obj._element.xpath('.//w:p'):
+        text = "".join(t.text for t in p_node.xpath('.//w:t') if t.text).strip()
+        if text:
+            all_text_parts.append(text)
             
+    # Buscamos nodos 'w:t' (texto) huérfanos que no estén dentro de un w:p ya procesado
+    for t_node in doc_obj._element.xpath('.//w:t'):
+        # chequear si pertenece a un w:p
+        if not t_node.xpath('ancestor::w:p'):
+            if t_node.text and t_node.text.strip():
+                all_text_parts.append(t_node.text.strip())
+                
     return all_text_parts
 
 def extract(path: str | Path) -> Document:
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
     path = Path(path)
     doc_obj = DocxDocument(str(path))
 
     # 1. Extracción tradicional (para mantener orden de párrafos en el proceso de reemplazo si fuera necesario)
-    # Pero para detección, usamos el modo profundo que no se salta nada.
     paragraphs = _extract_paragraphs(doc_obj)
     
     # 2. Agregar texto de todos los headers/footers
@@ -71,24 +80,32 @@ def extract(path: str | Path) -> Document:
         for hf in [section.header, section.footer, section.first_page_header, 
                    section.first_page_footer, section.even_page_header, section.even_page_footer]:
             if hf:
-                # El objeto Header/Footer no tiene '.element' sino '._element'
+                for p_node in hf._element.xpath('.//w:p'):
+                    text = "".join(t.text for t in p_node.xpath('.//w:t') if t.text).strip()
+                    if text:
+                        paragraphs.append(text)
                 for t_node in hf._element.xpath('.//w:t'):
-                    if t_node.text and t_node.text.strip():
+                    if not t_node.xpath('ancestor::w:p') and t_node.text and t_node.text.strip():
                         paragraphs.append(t_node.text.strip())
 
     # 3. Búsqueda profunda en el cuerpo (Cuadros de texto, formas, etc.)
-    # 3. Búsqueda profunda en el cuerpo (Cuadros de texto, formas, etc.)
-    # Buscamos en el XML completo del cuerpo
-    deep_text = []
-    for t_node in doc_obj._element.xpath('.//w:t'):
-        if t_node.text and t_node.text.strip():
-            deep_text.append(t_node.text.strip())
+    deep_text = _extract_all_xml_text(doc_obj)
     
+    # 4. XMLs Auxiliares (Comments, Footnotes, Endnotes)
+    aux_text = []
+    for rel in doc_obj.part.rels.values():
+        if rel.reltype in (RT.COMMENTS, RT.FOOTNOTES, RT.ENDNOTES):
+            part = rel.target_part
+            if hasattr(part, "element"):
+                for p_node in part.element.xpath('.//w:p'):
+                    text = "".join(t.text for t in p_node.xpath('.//w:t') if t.text).strip()
+                    if text:
+                        aux_text.append(text)
+
     # Unificamos para el full_text que va a la IA (ner)
-    # Usamos un set para no repetir si el párrafo estándar ya lo tomó, pero queremos todo
     seen = set()
     combined = []
-    for p in (paragraphs + deep_text):
+    for p in (paragraphs + deep_text + aux_text):
         if p not in seen:
             combined.append(p)
             seen.add(p)

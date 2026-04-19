@@ -2,7 +2,7 @@ import re
 from typing import List, Optional, Tuple, Any
 from anonymizer.models import Entity, EntityType, Document
 from anonymizer.config import current_settings
-from anonymizer.detectors import ner, patterns as pat_module, detector
+from anonymizer.detectors import ner, patterns as pat_module, detector, amounts
 from anonymizer.detectors.ner import _LABEL_MAP
 
 def check_filters(text: str) -> List[str]:
@@ -33,7 +33,7 @@ def check_shadowing(all_candidates: List[Entity], target_span: Tuple[int, int]) 
     t_start, t_end = target_span
     
     # Sort identical to detector._deduplicate logic
-    priority = {"known": 0, "regex": 1, "ner": 2}
+    priority = {"known": 0, "regex": 1, "ner": 2, "text2num": 3}
     sorted_ents = sorted(all_candidates, key=lambda e: (
         e.start, 
         priority.get(e.source, 3), 
@@ -110,7 +110,9 @@ def diagnose_span(text: str, target_text: str, expected_type: Optional[EntityTyp
     known_entities = ke_module.load()
     known_ents = detector._detect_known(text, known_entities)
     
-    all_candidates = ner_ents + regex_ents + known_ents
+    amount_ents = amounts.detect(text)
+    
+    all_candidates = ner_ents + regex_ents + known_ents + amount_ents
     results["candidates"] = [
         {"text": e.text, "type": e.entity_type.value, "source": e.source, "span": (e.start, e.end)} 
         for e in all_candidates

@@ -13,9 +13,11 @@ SETTINGS_PATH = APP_DIR / "settings.json"
 
 # Default constants (previously hardcoded in other modules)
 DEFAULT_NER_MODELS = [
-    "xx_ent_wiki_sm",   # multilingual (recommended)
-    "es_core_news_sm",  # Spanish
-    "en_core_web_sm",   # English fallback
+    "es_core_news_lg",   # Spanish Large (most precise)
+    "es_core_news_sm",   # Spanish Small
+    "en_core_web_lg",    # English Large
+    "en_core_web_sm",    # English Small
+    "xx_ent_wiki_sm",    # Multilingual
 ]
 
 DEFAULT_STOPWORDS = {
