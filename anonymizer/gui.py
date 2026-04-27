@@ -1,6 +1,6 @@
 """
 ANON V — Desktop Pro
-Rediseño de la GUI con stepper horizontal, wallpaper de fondo y branding INVAP.
+Rediseño de la GUI con stepper horizontal.
 Implementación CustomTkinter — preserva toda la lógica de la versión anterior.
 """
 
@@ -196,7 +196,7 @@ class AnonymizerGUI(ctk.CTk):
         )
         self.btn_manage_db.pack(side="left", padx=4)
 
-        # Status + INVAP (derecha)
+        # Status (derecha)
         self.bottom_right = ctk.CTkFrame(self.bottom_bar, fg_color="transparent")
         self.bottom_right.pack(side="right", padx=24, pady=8)
 
