@@ -9,7 +9,6 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import sys
-from PIL import Image
 import customtkinter as ctk
 from pathlib import Path
 
@@ -24,7 +23,7 @@ from anonymizer.config import current_settings, SETTINGS_PATH
 # ============================================================
 # PALETA Y CONSTANTES VISUALES
 # ============================================================
-COLOR_BG          = "#0B0B0D"   # fondo base (debajo del wallpaper)
+COLOR_BG          = "#111827"   # fondo base
 COLOR_PANEL       = "#18181C"   # frames principales
 COLOR_PANEL_ALT   = "#1F1F25"   # tarjetas internas
 COLOR_BORDER      = "#2A2A32"
@@ -32,15 +31,15 @@ COLOR_BORDER_SOFT = "#22222A"
 COLOR_TEXT        = "#ECECF0"
 COLOR_TEXT_DIM    = "#9A9AA5"
 COLOR_TEXT_MUTED  = "#60606B"
-COLOR_ACCENT      = "#4FB3FF"   # azul técnico — ajustable a corporativo INVAP
+COLOR_ACCENT      = "#4FB3FF"   # azul técnico
 COLOR_ACCENT_DARK = "#2E8FD9"
 COLOR_SUCCESS     = "#3DBE8B"
 COLOR_SUCCESS_DARK = "#2D9B6E"
 COLOR_WARNING     = "#E6B04A"
 COLOR_DANGER      = "#D66A6A"
 
-WIN_W = 920
-WIN_H = 680
+WIN_W = 1050
+WIN_H = 720
 
 
 def get_resource_path(relative_path):
@@ -79,16 +78,8 @@ class AnonymizerGUI(ctk.CTk):
         self.matcher = EntityMatcher()
         self.active_step = 1  # paso activo del stepper
 
-        # Imagen de fondo (wallpaper). Se mantiene referencia para evitar GC.
-        self._bg_image_pil = None
-        self._bg_ctk_image = None
-        self._bg_label = None
-
         self._setup_ui()
         self._render_step_content()
-
-        # Re-render del wallpaper cuando cambie el tamaño
-        self.bind("<Configure>", self._on_resize)
 
         # Cargar archivo si se pasa como argumento
         if len(sys.argv) > 1:
@@ -98,39 +89,7 @@ class AnonymizerGUI(ctk.CTk):
     # UI SETUP
     # ============================================================
     def _setup_ui(self):
-        # ---------- Wallpaper de fondo ----------
-        wallpaper_path = get_resource_path("wallpaper.jpg")
-        if not os.path.exists(wallpaper_path):
-            # Fallbacks comunes
-            for alt in ("assets/wallpaper.jpg", "INVAP Wallpaper Fondo Negro.jpg",
-                        "docs/assets/wallpaper.jpg"):
-                p = get_resource_path(alt)
-                if os.path.exists(p):
-                    wallpaper_path = p
-                    break
-
-        if os.path.exists(wallpaper_path):
-            try:
-                self._bg_image_pil = Image.open(wallpaper_path)
-                self._bg_ctk_image = ctk.CTkImage(
-                    light_image=self._bg_image_pil,
-                    dark_image=self._bg_image_pil,
-                    size=(WIN_W, WIN_H),
-                )
-                self._bg_label = ctk.CTkLabel(self, image=self._bg_ctk_image, text="")
-                self._bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-            except Exception as e:
-                print(f"Error cargando wallpaper: {e}")
-
-        # Overlay oscuro encima del wallpaper para legibilidad
-        self.overlay = ctk.CTkFrame(self, fg_color=COLOR_BG, corner_radius=0)
-        self.overlay.place(x=0, y=0, relwidth=1, relheight=1)
-        # Truco: en CTk no hay alpha real; usamos un color casi-negro como overlay
-        # Para mantener visible el wallpaper, NO cubrimos al 100% — en su lugar
-        # destapamos el label de fondo y dejamos que el contenido viva sobre él.
-        self.overlay.destroy()  # quitamos overlay total
-
-        # Contenedor principal transparente sobre el wallpaper
+        # Contenedor principal
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.place(x=0, y=0, relwidth=1, relheight=1)
 
@@ -193,7 +152,7 @@ class AnonymizerGUI(ctk.CTk):
         )
         self.step_panel.pack(fill="both", expand=True, padx=28, pady=(20, 12))
 
-        # ---------- BARRA INFERIOR (utilidades + INVAP) ----------
+        # ---------- BARRA INFERIOR (utilidades) ----------
         self.bottom_bar = ctk.CTkFrame(
             self.main_container,
             fg_color=("#0A0A0C", "#0A0A0C"),
@@ -240,16 +199,6 @@ class AnonymizerGUI(ctk.CTk):
         # Status + INVAP (derecha)
         self.bottom_right = ctk.CTkFrame(self.bottom_bar, fg_color="transparent")
         self.bottom_right.pack(side="right", padx=24, pady=8)
-
-        self.invap_label = ctk.CTkLabel(
-            self.bottom_right, text="INVAP",
-            font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
-            text_color=COLOR_TEXT,
-        )
-        self.invap_label.pack(side="right", padx=(12, 0))
-
-        self.invap_sep = ctk.CTkFrame(self.bottom_right, fg_color=COLOR_BORDER, width=1, height=14)
-        self.invap_sep.pack(side="right", padx=8)
 
         self.status_bar = ctk.CTkLabel(
             self.bottom_right, text="●  listo",
@@ -458,10 +407,10 @@ class AnonymizerGUI(ctk.CTk):
 
         ctk.CTkButton(
             nav, text="Continuar a Mapeo  →",
-            width=180, height=36,
+            width=180, height=38,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
             text_color="#06121E",
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             state="normal" if has_doc else "disabled",
             command=lambda: self._goto_step(2),
         ).pack(side="right")
@@ -592,10 +541,10 @@ class AnonymizerGUI(ctk.CTk):
 
         ctk.CTkButton(
             nav, text="Continuar a Generar  →",
-            width=200, height=36,
+            width=200, height=38,
             fg_color=COLOR_ACCENT, hover_color=COLOR_ACCENT_DARK,
             text_color="#06121E",
-            font=ctk.CTkFont(size=12, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             state="normal" if (self.doc_path and self.xlsx_path) else "disabled",
             command=lambda: self._goto_step(3),
         ).pack(side="right")
@@ -680,16 +629,6 @@ class AnonymizerGUI(ctk.CTk):
     # ============================================================
     # WALLPAPER RESIZE
     # ============================================================
-    def _on_resize(self, event):
-        # Solo procesar el evento del root (no de los hijos)
-        if event.widget is not self:
-            return
-        if self._bg_image_pil and self._bg_ctk_image:
-            try:
-                self._bg_ctk_image.configure(size=(event.width, event.height))
-            except Exception:
-                pass
-
     # ============================================================
     # COMMAND-LINE / DRAG & DROP
     # ============================================================

@@ -3,13 +3,34 @@ Settings management for the document anonymizer.
 """
 import json
 import logging
+import os
+import shutil
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 
 logger = logging.getLogger(__name__)
 
-APP_DIR = Path.home() / ".doc-anonymizer"
+# Standard Windows location: %APPDATA%\doc-anonymizer
+_appdata = os.environ.get("APPDATA")
+APP_DIR = Path(_appdata) / "doc-anonymizer" if _appdata else Path.home() / ".doc-anonymizer"
 SETTINGS_PATH = APP_DIR / "settings.json"
+
+_LEGACY_DIR = Path.home() / ".doc-anonymizer"
+
+
+def _migrate_legacy_data() -> None:
+    """On first run after upgrade, move ~/.doc-anonymizer → %APPDATA%\doc-anonymizer."""
+    if _LEGACY_DIR.exists() and not APP_DIR.exists():
+        try:
+            APP_DIR.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(_LEGACY_DIR), str(APP_DIR))
+            logger.info("Migrated user data from %s to %s", _LEGACY_DIR, APP_DIR)
+        except Exception as exc:
+            logger.warning("Legacy migration failed (%s); starting fresh.", exc)
+            APP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+_migrate_legacy_data()
 
 # Default constants (previously hardcoded in other modules)
 DEFAULT_NER_MODELS = [
@@ -84,10 +105,17 @@ class Settings:
             default_settings = cls()
             default_data = asdict(default_settings)
             
-            # Migration check: if old db_path is JSON, force update to default XLSX
+            # Migration: db_path pointed to old JSON format → update to XLSX
             if data.get("db_path", "").endswith(".json"):
                 data["db_path"] = default_data["db_path"]
                 logger.info("Migrando db_path de JSON a Excel en configuración.")
+
+            # Migration: paths still point to legacy ~/.doc-anonymizer → update to APPDATA
+            _legacy_prefix = str(_LEGACY_DIR)
+            for _field in ("db_path", "patterns_path"):
+                if data.get(_field, "").startswith(_legacy_prefix):
+                    data[_field] = default_data[_field]
+                    logger.info("Actualizando %s a nueva ubicación APPDATA.", _field)
 
             for key in default_data:
                 if key not in data:

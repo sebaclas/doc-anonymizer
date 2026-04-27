@@ -13,6 +13,7 @@ class RegexEditorWindow(ctk.CTkToplevel):
         super().__init__(*args, **kwargs)
         self.title("Editor de Patrones Regex")
         self.geometry("900x700")
+        self.after(100, self._bring_to_front)
         
         # Load patterns
         self.all_patterns = load_custom_patterns()
@@ -38,6 +39,10 @@ class RegexEditorWindow(ctk.CTkToplevel):
         
         # Initial Render
         self.refresh_list()
+
+    def _bring_to_front(self):
+        self.lift()
+        self.focus_force()
 
     def setup_edit_ui(self):
         self.edit_frame.grid_columnconfigure(1, weight=1)

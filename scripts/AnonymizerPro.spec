@@ -1,18 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
-import os
 from PyInstaller.utils.hooks import collect_all
 
-# Referencias relativas al raíz del proyecto
-datas = [('../docs/mini_manual.html', '.'), ('../docs/assets/logo.png', '.')]
+datas = [
+    ('../docs/mini_manual.html', '.'),
+    ('../docs/assets/logo.png', '.'),
+    ('../docs/assets/logo.ico', '.'),
+]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('spacy')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('xx_ent_wiki_sm')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('customtkinter')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
+for pkg in ('spacy', 'xx_ent_wiki_sm', 'customtkinter', 'text2num'):
+    tmp = collect_all(pkg)
+    datas         += tmp[0]
+    binaries      += tmp[1]
+    hiddenimports += tmp[2]
 
 a = Analysis(
     ['../anonymizer/gui.py'],
@@ -27,13 +28,12 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
     name='AnonymizerPro',
     debug=False,
@@ -49,4 +49,14 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['../docs/assets/logo.ico'],
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='AnonymizerPro',
 )
