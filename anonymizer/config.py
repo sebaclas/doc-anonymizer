@@ -19,7 +19,7 @@ _LEGACY_DIR = Path.home() / ".doc-anonymizer"
 
 
 def _migrate_legacy_data() -> None:
-    """On first run after upgrade, move ~/.doc-anonymizer → %APPDATA%\doc-anonymizer."""
+    r"""On first run after upgrade, move ~/.doc-anonymizer → %APPDATA%\doc-anonymizer."""
     if _LEGACY_DIR.exists() and not APP_DIR.exists():
         try:
             APP_DIR.parent.mkdir(parents=True, exist_ok=True)
@@ -31,6 +31,41 @@ def _migrate_legacy_data() -> None:
 
 
 _migrate_legacy_data()
+
+
+def _filter_installed_ner_models(models: list[str]) -> list[str]:
+    """Return only the models from *models* that are installed in the current environment.
+
+    Uses ``spacy.util.get_installed_models()`` for the check. If that API is
+    unavailable for any reason the original list is returned unchanged so that
+    ``ner.py`` can handle missing models as it normally would.
+    """
+    try:
+        import spacy.util
+        installed = set(spacy.util.get_installed_models())
+    except Exception as exc:
+        logger.warning(
+            "No se pudo verificar los modelos spaCy instalados (%s). "
+            "Se usará la lista de configuración sin filtrar.",
+            exc,
+        )
+        return models
+
+    filtered = [m for m in models if m in installed]
+    skipped = [m for m in models if m not in installed]
+
+    for m in skipped:
+        logger.warning(
+            "Modelo NER '%s' no está instalado en el entorno actual y será ignorado.", m
+        )
+
+    if not filtered:
+        logger.warning(
+            "Ningún modelo NER de la configuración está disponible en el entorno actual. "
+            "La detección de entidades fallará hasta instalar al menos un modelo."
+        )
+
+    return filtered
 
 # Default constants (previously hardcoded in other modules)
 DEFAULT_NER_MODELS = [
@@ -120,11 +155,15 @@ class Settings:
             for key in default_data:
                 if key not in data:
                     data[key] = default_data[key]
-            
-            return cls(**data)
+
+            settings = cls(**data)
+            settings.ner_models = _filter_installed_ner_models(settings.ner_models)
+            return settings
         except Exception as e:
             logger.warning(f"Error cargando configuración ({load_path}): {e}. Usando defaults.")
-            return cls()
+            instance = cls()
+            instance.ner_models = _filter_installed_ner_models(instance.ner_models)
+            return instance
 
 
 # Global singleton

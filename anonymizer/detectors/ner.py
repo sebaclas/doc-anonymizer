@@ -28,10 +28,12 @@ def _load_model():
         except OSError:
             continue
 
+    attempted = ", ".join(current_settings.ner_models) if current_settings.ner_models else "(ninguno)"
     raise RuntimeError(
-        "No se encontró ningún modelo de spaCy. Instala uno con:\n"
-        "  python -m spacy download xx_ent_wiki_sm\n"
-        "  python -m spacy download es_core_news_sm"
+        f"No se pudo cargar ningún modelo de spaCy. Modelos intentados: {attempted}\n"
+        "Instalá un modelo compatible con:\n"
+        "  python -m spacy download es_core_news_lg\n"
+        "o consultá https://spacy.io/models para ver todos los modelos disponibles."
     )
 
 
